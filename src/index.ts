@@ -3,6 +3,9 @@ import { Command } from 'commander';
 import { helloCommand } from './commands/hello.js';
 
 const program = new Command();
-program.name('Minecraft_cmd_CLI').version('0.0.0').description('Genarate Minecraft Java Edition command on CLI.');
+program
+  .name('Minecraft_cmd_CLI')
+  .version('0.0.0')
+  .description('Genarate Minecraft Java Edition command on CLI.');
 program.addCommand(helloCommand());
 program.parse(process.argv);
