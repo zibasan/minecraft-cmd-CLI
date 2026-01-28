@@ -27,7 +27,13 @@ async function selectFromList(message: string, choices: string[]): Promise<strin
   let validInput = false;
 
   while (!validInput) {
-    const input = await createQuestion(chalk.cyan('Choose: '));
+    const input = (await createQuestion(chalk.cyan('Choose: '))).trim();
+
+    // Ensure the input is a strict integer string (digits only) before parsing.
+    if (!/^[0-9]+$/.test(input)) {
+      console.log(chalk.red(`Invalid selection. Please choose 1-${choices.length}`));
+      continue;
+    }
     selection = parseInt(input, 10);
 
     if (selection >= 1 && selection <= choices.length) {
