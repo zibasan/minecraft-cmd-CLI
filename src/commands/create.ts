@@ -2,7 +2,49 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import clipboard from 'clipboardy';
 import { createInterface } from 'readline';
-import inquirer from 'inquirer';
+
+function createQuestion(query: string): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(query, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+async function selectFromList(message: string, choices: string[]): Promise<string> {
+  console.log(chalk.cyan(message));
+  choices.forEach((choice, index) => {
+    console.log(`  ${chalk.yellow(index + 1)}. ${choice}`);
+  });
+
+  let selection: number = 0;
+  let validInput = false;
+
+  while (!validInput) {
+    const input = (await createQuestion(chalk.cyan('Choose: '))).trim();
+
+    // Ensure the input is a strict integer string (digits only) before parsing.
+    if (!/^[0-9]+$/.test(input)) {
+      console.log(chalk.red(`Invalid selection. Please choose 1-${choices.length}`));
+      continue;
+    }
+    selection = parseInt(input, 10);
+
+    if (selection >= 1 && selection <= choices.length) {
+      validInput = true;
+    } else {
+      console.log(chalk.red(`Invalid selection. Please choose 1-${choices.length}`));
+    }
+  }
+
+  return choices[selection - 1];
+}
 
 export function createCommand(): Command {
   const cmd = new Command('create');
@@ -11,14 +53,8 @@ export function createCommand(): Command {
     const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
 
     // Q1: Select command type
-    const answer1 = await inquirer.prompt({
-      type: 'list',
-      name: 'commandType',
-      message: 'Select a command type: ',
-      choices: supportedTypes,
-    });
+    const commandType = await selectFromList('Select a command type:', supportedTypes);
 
-    const commandType = answer1.commandType;
     console.log(chalk.blue(`Generate target: `), `${chalk.green(`${chalk.bold(commandType)}`)}`);
 
     let generatedCommand = '';
@@ -26,28 +62,62 @@ export function createCommand(): Command {
     switch (commandType) {
       case 'give':
         // Q2: Enter item name
-        const answer2 = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'itemName',
-            message: 'Item name (e.g., diamond): ',
-            validate: (input) => {
-              if (!input.trim()) {
-                return 'Please enter an item name.';
-              }
-              return true;
-            },
-          },
-        ]);
-        generatedCommand = `/give @p ${answer2.itemName}`;
+        const itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
+        if (!itemName.trim()) {
+          console.log(chalk.red('Please enter an item name.'));
+          process.exit(1);
+        }
+        generatedCommand = `/give @p ${itemName}`;
         break;
 
       case 'teleport':
-      case 'setblock':
-      case 'fill':
-      case 'say':
-      case 'execute':
+        const destination = await createQuestion(chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): '));
+        if (!destination.trim()) {
+          console.log(chalk.red('Please enter a destination.'));
+          process.exit(1);
+        }
+        generatedCommand = `/teleport ${destination}`;
+        break;
 
+      case 'setblock':
+        const sbPosition = await createQuestion(chalk.cyan('Position (e.g., 0 64 0): '));
+        const sbBlock = await createQuestion(chalk.cyan('Block (e.g., diamond_block): '));
+        if (!sbPosition.trim() || !sbBlock.trim()) {
+          console.log(chalk.red('Please enter position and block.'));
+          process.exit(1);
+        }
+        generatedCommand = `/setblock ${sbPosition} ${sbBlock}`;
+        break;
+
+      case 'fill':
+        const fillFrom = await createQuestion(chalk.cyan('From position (e.g., 0 64 0): '));
+        const fillTo = await createQuestion(chalk.cyan('To position (e.g., 10 64 10): '));
+        const fillBlock = await createQuestion(chalk.cyan('Block (e.g., stone): '));
+        if (!fillFrom.trim() || !fillTo.trim() || !fillBlock.trim()) {
+          console.log(chalk.red('Please enter all positions and block.'));
+          process.exit(1);
+        }
+        generatedCommand = `/fill ${fillFrom} ${fillTo} ${fillBlock}`;
+        break;
+
+      case 'say':
+        const message = await createQuestion(chalk.cyan('Message: '));
+        if (!message.trim()) {
+          console.log(chalk.red('Please enter a message.'));
+          process.exit(1);
+        }
+        generatedCommand = `/say ${message}`;
+        break;
+
+      case 'execute':
+        const execTarget = await createQuestion(chalk.cyan('Target selector (e.g., @a): '));
+        const execCommand = await createQuestion(chalk.cyan('Command to execute: '));
+        if (!execTarget.trim() || !execCommand.trim()) {
+          console.log(chalk.red('Please enter target and command.'));
+          process.exit(1);
+        }
+        generatedCommand = `/execute as ${execTarget} at @s run ${execCommand}`;
+        break;
       default:
         console.log(chalk.red(`✗ Unknown command type: ${commandType}`));
         console.log(chalk.red(`✗ "${commandType}" is not yet supported. Sorry!`));
