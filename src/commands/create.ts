@@ -71,12 +71,12 @@ export function createCommand(): Command {
         break;
 
       case 'teleport':
-        const target = await createQuestion(chalk.cyan('Target player/entity (e.g., @p): '));
-        if (!target.trim()) {
-          console.log(chalk.red('Please enter a target.'));
+        const destination = await createQuestion(chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): '));
+        if (!destination.trim()) {
+          console.log(chalk.red('Please enter a destination.'));
           process.exit(1);
         }
-        generatedCommand = `/teleport ${target}`;
+        generatedCommand = `/teleport ${destination}`;
         break;
 
       case 'setblock':
