@@ -55,23 +55,42 @@ export function createCommand(): Command {
     // Q1: Select command type
     const commandType = await selectFromList('Select a command type:', supportedTypes);
 
-    console.log(chalk.blue(`Generate target: `), `${chalk.green(`${chalk.bold(commandType)}`)}`);
+    console.log(chalk.blue(`Generate target:`), `${chalk.green(`${chalk.bold(commandType)}`)}`);
 
     let generatedCommand = '';
 
     switch (commandType) {
       case 'give':
-        // Q2: Enter item name
+        // Q2: Choose Target
+        const target = [
+          '@p - Near Player',
+          '@a - All Player',
+          '@s - Myself',
+          '@r - Random Player',
+          '@n - A Nearest Player',
+        ];
+        const targetType = await selectFromList('Select a target type:', target);
+
+        console.log(
+          chalk.blue(`Target:`),
+          `${chalk.green(`${chalk.bold(targetType.split(' ')[0])}`)}`
+        );
+
+        // Q3: Enter item name
         const itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
         if (!itemName.trim()) {
           console.log(chalk.red('Please enter an item name.'));
           process.exit(1);
         }
-        generatedCommand = `/give @p ${itemName}`;
+        console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
+
+        generatedCommand = `/give ${targetType.split(' ')[0]} ${itemName}`;
         break;
 
       case 'teleport':
-        const destination = await createQuestion(chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): '));
+        const destination = await createQuestion(
+          chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): ')
+        );
         if (!destination.trim()) {
           console.log(chalk.red('Please enter a destination.'));
           process.exit(1);
