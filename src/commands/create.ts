@@ -3,7 +3,9 @@ import chalk from 'chalk';
 import clipboard from 'clipboardy';
 import { createInterface } from 'readline';
 
-function createQuestion(query: string): Promise<string> {
+import { addtionalSelectorsQuestion } from './selectors/selectors.js';
+
+export function createQuestion(query: string): Promise<string> {
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -17,7 +19,7 @@ function createQuestion(query: string): Promise<string> {
   });
 }
 
-async function selectFromList(message: string, choices: string[]): Promise<string> {
+export async function selectFromList(message: string, choices: string[]): Promise<string> {
   console.log(chalk.cyan(message));
   choices.forEach((choice, index) => {
     console.log(`  ${chalk.yellow(index + 1)}. ${choice}`);
@@ -58,6 +60,7 @@ export function createCommand(): Command {
     console.log(chalk.blue(`Generate target:`), `${chalk.green(`${chalk.bold(commandType)}`)}`);
 
     let generatedCommand = '';
+    let selector = '';
 
     console.log('\n');
 
@@ -69,14 +72,37 @@ export function createCommand(): Command {
           '@a - All Player',
           '@s - Myself',
           '@r - Random Player',
-          '@n - A Nearest Player',
+          "@n - A Nearest Player (1.21+, same '@p[sort=nearest, limit=1]')",
         ];
-        const targetType = await selectFromList('Select a target type:', target);
+        const targetType = (await selectFromList('Select a target selector type:', target)).split(
+          ' '
+        )[0];
 
-        console.log(
-          chalk.blue(`Target:`),
-          `${chalk.green(`${chalk.bold(targetType.split(' ')[0])}`)}`
+        console.log(chalk.blue(`Target:`), `${chalk.green(`${chalk.bold(targetType)}`)}`);
+        console.log('\n');
+
+        // Q2.5: Ask to refine target selector
+        const refineSelector = await createQuestion(
+          chalk.cyan('Want to further refine your target selector? (y/N): ')
         );
+        const shouldRefine = refineSelector.toLowerCase() === 'y';
+        let addSelectors: string = '';
+        if (shouldRefine) {
+          addSelectors = await addtionalSelectorsQuestion();
+        } else {
+          console.log(
+            `${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('No')}`)}`
+          );
+        }
+
+        const addedSelectorsTF: boolean = addSelectors ? true : false;
+
+        if (addedSelectorsTF) {
+          selector = `${targetType}[${addSelectors}]`;
+        } else {
+          selector = `${targetType}`;
+        }
+
         console.log('\n');
 
         // Q3: Enter item name
@@ -98,7 +124,7 @@ export function createCommand(): Command {
         console.log(chalk.blue(`Item amount:`), `${chalk.green(`${chalk.bold(amount)}`)}`);
         console.log('\n');
 
-        generatedCommand = `/give ${targetType.split(' ')[0]} ${itemName} ${amount}`;
+        generatedCommand = `/give ${selector} ${itemName} ${amount}`;
         break;
 
       case 'teleport':
