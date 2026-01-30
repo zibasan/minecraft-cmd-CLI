@@ -1,11 +1,10 @@
 import chalk from 'chalk';
 import { createQuestion, selectFromList } from '../create.js';
 
-let addedSelectors: string[] = [];
-
 export async function addtionalSelectorsQuestion(): Promise<string> {
   console.log(`${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
 
+  const addedSelectors: string[] = [];
   const allSelectorTypes = [
     'distance',
     'score',
