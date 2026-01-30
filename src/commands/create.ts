@@ -59,6 +59,8 @@ export function createCommand(): Command {
 
     let generatedCommand = '';
 
+    console.log('\n');
+
     switch (commandType) {
       case 'give':
         // Q2: Choose Target
@@ -75,6 +77,7 @@ export function createCommand(): Command {
           chalk.blue(`Target:`),
           `${chalk.green(`${chalk.bold(targetType.split(' ')[0])}`)}`
         );
+        console.log('\n');
 
         // Q3: Enter item name
         const itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
@@ -83,8 +86,19 @@ export function createCommand(): Command {
           process.exit(1);
         }
         console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
+        console.log('\n');
 
-        generatedCommand = `/give ${targetType.split(' ')[0]} ${itemName}`;
+        // Q4: Amount
+        let amount = await createQuestion(
+          chalk.cyan("Item amount(How many? If empty, it'll set 1.): ")
+        );
+        if (!amount.trim()) {
+          amount = '1';
+        }
+        console.log(chalk.blue(`Item amount:`), `${chalk.green(`${chalk.bold(amount)}`)}`);
+        console.log('\n');
+
+        generatedCommand = `/give ${targetType.split(' ')[0]} ${itemName} ${amount}`;
         break;
 
       case 'teleport':
