@@ -56,7 +56,7 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
     console.log('\n');
 
     switch (addSelectorsType) {
-      case 'distance':
+      case 'distance': {
         const distance = await createQuestion(
           chalk.cyan('Distance to entity (int or range e.g., 1..5 = 1~5). Type "back" to go back: ')
         );
@@ -73,8 +73,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`distance=${distance}`);
         break;
-
-      case 'score':
+      }
+      case 'score': {
         let score = await createQuestion(
           chalk.cyan(
             "Score (format: score value or range of A = 'A=1' or 'A=1..10'). Type \"back\" to go back: "
@@ -93,8 +93,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`score=${score}`);
         break;
-
-      case 'tag':
+      }
+      case 'tag': {
         const tag = await createQuestion(
           chalk.cyan(
             'Tag (format: <your-tag> | If it put \'!\' at the beginning, the tag will be excluded.). Type "back" to go back: '
@@ -113,8 +113,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`tag=${tag}`);
         break;
-
-      case 'team':
+      }
+      case 'team': {
         const team = await createQuestion(
           chalk.cyan(
             'Team (format: <your-team> | If it put \'!\' at the beginning, the team will be excluded.). Type "back" to go back: '
@@ -133,8 +133,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`team=${team}`);
         break;
-
-      case 'limit':
+      }
+      case 'limit': {
         const limit = await createQuestion(chalk.cyan('Limit(int). Type "back" to go back: '));
         if (limit.trim().toLowerCase() === 'back') {
           console.log(chalk.yellow('Cancelled. Back to selector selection.'));
@@ -149,8 +149,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`limit=${limit}`);
         break;
-
-      case 'level':
+      }
+      case 'level': {
         const level = await createQuestion(
           chalk.cyan("Exp Level(int or range format: '10' or '10..20'). Type \"back\" to go back: ")
         );
@@ -167,8 +167,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`level=${level}`);
         break;
-
-      case 'gamemode':
+      }
+      case 'gamemode': {
         const gamemodeList = [
           'survival',
           'creative',
@@ -189,8 +189,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`gamemode=${gamemode}`);
         break;
-
-      case 'advancements':
+      }
+      case 'advancements': {
         const advancement = await createQuestion(
           chalk.cyan('Advancement(format: <advancement_ID>=true/false). Type "back" to go back: ')
         );
@@ -208,8 +208,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`advancements=${advancement}`);
         break;
-
-      case 'predicate':
+      }
+      case 'predicate': {
         const predicate = await createQuestion(
           chalk.cyan(
             'Predicate(predicate_id | If it put \'!\' at the beginning, the predicate will be excluded.). Type "back" to go back: '
@@ -229,8 +229,8 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`predicate=${predicate}`);
         break;
-
-      case 'sort':
+      }
+      case 'sort': {
         const sortList = [
           'nearest - Select from the nearest entity first',
           'furthest - Select from the furthest entity first',
@@ -251,10 +251,11 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         console.log('\n');
         addedSelectors.push(`sort=${sort}`);
         break;
-
-      case 'OK':
+      }
+      case 'OK': {
         continueAdding = false;
         break;
+      }
     }
   }
   const addSelectors = addedSelectors.join(',');
