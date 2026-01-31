@@ -65,7 +65,7 @@ export function createCommand(): Command {
     console.log('\n');
 
     switch (commandType) {
-      case 'give':
+      case 'give': {
         // Q2: Choose Target
         const target = [
           '@p - Near Player',
@@ -126,8 +126,8 @@ export function createCommand(): Command {
 
         generatedCommand = `/give ${selector} ${itemName} ${amount}`;
         break;
-
-      case 'teleport':
+      }
+      case 'teleport': {
         const destination = await createQuestion(
           chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): ')
         );
@@ -137,8 +137,8 @@ export function createCommand(): Command {
         }
         generatedCommand = `/teleport ${destination}`;
         break;
-
-      case 'setblock':
+      }
+      case 'setblock': {
         const sbPosition = await createQuestion(chalk.cyan('Position (e.g., 0 64 0): '));
         const sbBlock = await createQuestion(chalk.cyan('Block (e.g., diamond_block): '));
         if (!sbPosition.trim() || !sbBlock.trim()) {
@@ -147,8 +147,8 @@ export function createCommand(): Command {
         }
         generatedCommand = `/setblock ${sbPosition} ${sbBlock}`;
         break;
-
-      case 'fill':
+      }
+      case 'fill': {
         const fillFrom = await createQuestion(chalk.cyan('From position (e.g., 0 64 0): '));
         const fillTo = await createQuestion(chalk.cyan('To position (e.g., 10 64 10): '));
         const fillBlock = await createQuestion(chalk.cyan('Block (e.g., stone): '));
@@ -158,8 +158,8 @@ export function createCommand(): Command {
         }
         generatedCommand = `/fill ${fillFrom} ${fillTo} ${fillBlock}`;
         break;
-
-      case 'say':
+      }
+      case 'say': {
         const message = await createQuestion(chalk.cyan('Message: '));
         if (!message.trim()) {
           console.log(chalk.red('Please enter a message.'));
@@ -167,8 +167,8 @@ export function createCommand(): Command {
         }
         generatedCommand = `/say ${message}`;
         break;
-
-      case 'execute':
+      }
+      case 'execute': {
         const execTarget = await createQuestion(chalk.cyan('Target selector (e.g., @a): '));
         const execCommand = await createQuestion(chalk.cyan('Command to execute: '));
         if (!execTarget.trim() || !execCommand.trim()) {
@@ -177,10 +177,13 @@ export function createCommand(): Command {
         }
         generatedCommand = `/execute as ${execTarget} at @s run ${execCommand}`;
         break;
-      default:
+      }
+
+      default: {
         console.log(chalk.red(`✗ Unknown command type: ${commandType}`));
         console.log(chalk.red(`✗ "${commandType}" is not yet supported. Sorry!`));
         process.exit(1);
+      }
     }
 
     console.log(`${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}`);
@@ -195,7 +198,7 @@ export function createCommand(): Command {
       try {
         await clipboard.write(generatedCommand);
         console.log(chalk.green('✓ Command copied to clipboard!'));
-      } catch (error) {
+      } catch {
         console.log(chalk.red('✗ Failed to copy command to clipboard'));
       } finally {
         rl.close();

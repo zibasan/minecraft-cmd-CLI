@@ -21,7 +21,7 @@
     "dev": "ts-node --esm src/index.ts",
     "start": "pnpm build && node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" --fix",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "lint-staged": "lint-staged",
     "format": "prettier --write \"src/**/*.ts\"",
