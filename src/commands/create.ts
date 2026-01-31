@@ -51,7 +51,29 @@ export async function selectFromList(message: string, choices: string[]): Promis
 export function createCommand(): Command {
   const cmd = new Command('create');
   cmd.description('Generate Minecraft commands');
-  cmd.action(async () => {
+  cmd.option('-c, --copy [boolean]', 'Whether copy command to clipboard', true);
+  cmd.action(async (options) => {
+    switch (options.copy) {
+      case 'true': {
+        console.log(
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copy to clipboard')}`
+        );
+        break;
+      }
+      case 'false': {
+        console.log(
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will not be copy to clipboard')}`
+        );
+        break;
+      }
+      default: {
+        console.log(
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copy to clipboard')}`
+        );
+        break;
+      }
+    }
+
     const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
 
     // Q1: Select command type
@@ -194,16 +216,31 @@ export function createCommand(): Command {
       output: process.stdout,
     });
 
-    rl.question(chalk.cyan('Press Enter to copy to clipboard...'), async () => {
-      try {
-        await clipboard.write(generatedCommand);
-        console.log(chalk.green('✓ Command copied to clipboard!'));
-      } catch {
-        console.log(chalk.red('✗ Failed to copy command to clipboard'));
-      } finally {
-        rl.close();
-      }
-    });
+    if (options.copy === 'true') {
+      rl.question(chalk.cyan('Press Enter to copy to clipboard...'), async () => {
+        try {
+          await clipboard.write(generatedCommand);
+          console.log(chalk.green('✓ Command copied to clipboard!'));
+        } catch {
+          console.log(chalk.red('✗ Failed to copy command to clipboard'));
+        } finally {
+          rl.close();
+        }
+      });
+    } else if (options.copy === 'false') {
+      process.exit();
+    } else {
+      rl.question(chalk.cyan('Press Enter to copy to clipboard...'), async () => {
+        try {
+          await clipboard.write(generatedCommand);
+          console.log(chalk.green('✓ Command copied to clipboard!'));
+        } catch {
+          console.log(chalk.red('✗ Failed to copy command to clipboard'));
+        } finally {
+          rl.close();
+        }
+      });
+    }
   });
 
   return cmd;
