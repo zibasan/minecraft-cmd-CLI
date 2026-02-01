@@ -22,35 +22,38 @@ jobs:
           # イベント名によって変数の中身をスイッチ
           case "${{ github.event_name }}" in
             "push")
-              TITLE="📦 pushされました: ${{ github.ref_name }}"
-              DESC="コミット: ${{ github.event.head_commit.message }}"
+              TITLE="📦 ブランチ${{ github.ref_name }}にpushされました"
+              DESC="コミット内容: ${{ github.event.head_commit.message }}"
               URL="${{ github.event.compare }}"
               COLOR=3066993 # Blue
               ;;
             "pull_request")
               if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
-                TITLE="💜 PRがMergeされました: #${{ github.event.pull_request.number }}"
+                TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
                 COLOR=6570404 # Purple
               elif [ "${{ github.event.action }}" = "closed" ]; then
-                TITLE="❌ PRがクローズされました: #${{ github.event.pull_request.number }}"
+                TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
                 COLOR=15158332 # Red
               else
-                TITLE="🆕 PRが作成されました: #${{ github.event.pull_request.number }}"
+                TITLE=":new: PRが作成されました: #${{ github.event.pull_request.number }}"
                 COLOR=3066993 # Blue
               fi
               DESC="${{ github.event.pull_request.title }}"
+              BRANCH="${{ github.base_ref }} --> ${{ github.head_ref }}"
               URL="${{ github.event.pull_request.html_url }}"
               ;;
             "pull_request_review")
               TITLE="🔍 レビュー: ${{ github.event.review.state }}"
               DESC="Pull Request: ${{ github.event.pull_request.title }}"
               URL="${{ github.event.review.html_url }}"
+              BRANCH="${{ github.base_ref }} --> ${{ github.head_ref }}"
               COLOR=15105570 # Orange
               ;;
             "issue_comment")
-              TITLE="💬 新しいコメント"
+              TITLE="💬 新しいコメントが作成されました"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
+              BRANCH="${{ github.ref_name }}"
               COLOR=12370112 # Grey
               ;;
           esac
@@ -60,33 +63,29 @@ jobs:
           echo "desc=$DESC" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "color=$COLOR" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-      - name: Send Discord Webhook with Component V2
+      - name: Send Discord Webhook Embed
         run: |
           curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{
-                 "embeds": [{
-                   "title": "${{ steps.info.outputs.title }}",
-                   "description": "${{ steps.info.outputs.desc }}",
-                   "color": ${{ steps.info.outputs.color }},
-                   "author": {
-                     "name": "${{ github.actor }}",
-                     "icon_url": "https://github.com/${{ github.actor }}.png"
-                   }
-                 }],
-                 "components": [
-                   {
-                     "type": 1,
-                     "components": [
-                       {
-                         "type": 2,
-                         "style": 5,
-                         "label": "GitHubで確認する",
-                         "url": "${{ steps.info.outputs.url }}"
-                       }
-                     ]
-                   }
-                 ]
-               }' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+                -X POST \
+                -d '{
+                  "embeds": [{
+                    "title": "${{ steps.info.outputs.title }}",
+                    "description": "${{ steps.info.outputs.desc }}",
+                    "color": ${{ steps.info.outputs.color }},
+                    "url": "${{ steps.info.outputs.url }}",
+                    "author": {
+                      "name": "${{ github.actor }}",
+                      "icon_url": "https://github.com/${{ github.actor }}.png",
+                      "url": "https://github.com/${{ github.actor }}"
+                    },
+                    "timestamp": {},
+                    "fields": [
+                      { name: "👤 操作したユーザー", value: "${{ github.actor }}", inline: true },
+                      { name: ":deciduous_tree: ブランチ", value: "${{ steps.info.outputs.branch }}", inline: true },
+
+                    ]
+                  }]
+                }' \
+                ${{ secrets.DISCORD_WEBHOOK }}
