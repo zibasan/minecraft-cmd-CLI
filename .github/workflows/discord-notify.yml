@@ -1,0 +1,92 @@
+name: Discord Component Notification
+
+on:
+  push:
+    branches: [ "master", "dev" ]
+  pull_request:
+    branches: [ "master", "dev" ]
+    types: [opened, closed]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+jobs:
+  discord-notification:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request || github.event_name != 'issue_comment' # PRに関連しないIssueコメントは除外
+    steps:
+      - name: Prepare Notification Details
+        id: info
+        run: |
+          # イベント名によって変数の中身をスイッチ
+          case "${{ github.event_name }}" in
+            "push")
+              TITLE="📦 pushされました: ${{ github.ref_name }}"
+              DESC="コミット: ${{ github.event.head_commit.message }}"
+              URL="${{ github.event.compare }}"
+              COLOR=3066993 # Blue
+              ;;
+            "pull_request")
+              if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+                TITLE="💜 PRがMergeされました: #${{ github.event.pull_request.number }}"
+                COLOR=6570404 # Purple
+              elif [ "${{ github.event.action }}" = "closed" ]; then
+                TITLE="❌ PRがクローズされました: #${{ github.event.pull_request.number }}"
+                COLOR=15158332 # Red
+              else
+                TITLE="🆕 PRが作成されました: #${{ github.event.pull_request.number }}"
+                COLOR=3066993 # Blue
+              fi
+              DESC="${{ github.event.pull_request.title }}"
+              URL="${{ github.event.pull_request.html_url }}"
+              ;;
+            "pull_request_review")
+              TITLE="🔍 レビュー: ${{ github.event.review.state }}"
+              DESC="Pull Request: ${{ github.event.pull_request.title }}"
+              URL="${{ github.event.review.html_url }}"
+              COLOR=15105570 # Orange
+              ;;
+            "issue_comment")
+              TITLE="💬 新しいコメント"
+              DESC="${{ github.event.comment.body }}"
+              URL="${{ github.event.comment.html_url }}"
+              COLOR=12370112 # Grey
+              ;;
+          esac
+
+          # 出力変数として保存
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "desc=$DESC" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+
+      - name: Send Discord Webhook with Component V2
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{
+                 "embeds": [{
+                   "title": "${{ steps.info.outputs.title }}",
+                   "description": "${{ steps.info.outputs.desc }}",
+                   "color": ${{ steps.info.outputs.color }},
+                   "author": {
+                     "name": "${{ github.actor }}",
+                     "icon_url": "https://github.com/${{ github.actor }}.png"
+                   }
+                 }],
+                 "components": [
+                   {
+                     "type": 1,
+                     "components": [
+                       {
+                         "type": 2,
+                         "style": 5,
+                         "label": "GitHubで確認する",
+                         "url": "${{ steps.info.outputs.url }}"
+                       }
+                     ]
+                   }
+                 ]
+               }' \
+               ${{ secrets.DISCORD_WEBHOOK }}
