@@ -42,6 +42,7 @@ jobs:
               TITLE="📦 ブランチ${{ github.ref_name }}にpushされました"
               DESC="コミット内容: ${{ github.event.head_commit.message }}"
               URL="${{ github.event.compare }}"
+              MENTION="@here"
               COLOR=3066993
               BRANCH="${{ github.ref_name }}"
               ;;
