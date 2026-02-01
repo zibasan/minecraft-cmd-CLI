@@ -59,7 +59,7 @@ jobs:
                 TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
                 COLOR=6570404
                 # マージ時は「マージした人」と「PR作成者」の両方にメンション
-                AUTHOR_MENTION="@here")
+                AUTHOR_MENTION="@here"
                 MENTION="$AUTHOR_MENTION"
               elif [ "${{ github.event.action }}" = "closed" ]; then
                 TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
