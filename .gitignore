@@ -33,13 +33,14 @@ yarn-error.log*
 *.tmp
 .temp/
 temp/
+scripts/*
 
 # Linter and formatter cache
 .eslintcache
 .prettier-cache
 
 # Husky
-.husky/_
+.husky/_/
 
 # メモ
 /memo.txt

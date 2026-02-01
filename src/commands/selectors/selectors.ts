@@ -57,115 +57,137 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
 
     switch (addSelectorsType) {
       case 'distance': {
-        const distance = await createQuestion(
-          chalk.cyan('Distance to entity (int or range e.g., 1..5 = 1~5). Type "back" to go back: ')
-        );
-        if (distance.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const distance = await createQuestion(
+            chalk.cyan(
+              'Distance to entity (int or range e.g., 1..5 = 1~5). Type "back" to go back: '
+            )
+          );
+          if (distance.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!distance.trim()) {
+            console.log(chalk.red('Please enter a distance value or range.'));
+            continue;
+          }
+          console.log(chalk.blue(`Distance:`), `${chalk.green(`${chalk.bold(distance)}`)}`);
           console.log('\n');
+          addedSelectors.push(`distance=${distance}`);
           break;
         }
-        if (!distance.trim()) {
-          console.log(chalk.red('Please enter a distance value or range.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Distance:`), `${chalk.green(`${chalk.bold(distance)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`distance=${distance}`);
         break;
       }
       case 'score': {
-        let score = await createQuestion(
-          chalk.cyan(
-            "Score (format: score value or range of A = 'A=1' or 'A=1..10'). Type \"back\" to go back: "
-          )
-        );
-        if (score.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const score = await createQuestion(
+            chalk.cyan(
+              "Score (format: score value or range of A = 'A=1' or 'A=1..10'). Type \"back\" to go back: "
+            )
+          );
+          if (score.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!score.trim()) {
+            console.log(chalk.red('Please enter a score format.'));
+            continue;
+          }
+          console.log(chalk.blue(`Score:`), `${chalk.green(`${chalk.bold(score)}`)}`);
           console.log('\n');
+          addedSelectors.push(`score=${score}`);
           break;
         }
-        if (!score.trim()) {
-          console.log(chalk.red('Please enter a score format.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Score:`), `${chalk.green(`${chalk.bold(score)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`score=${score}`);
         break;
       }
       case 'tag': {
-        const tag = await createQuestion(
-          chalk.cyan(
-            'Tag (format: <your-tag> | If it put \'!\' at the beginning, the tag will be excluded.). Type "back" to go back: '
-          )
-        );
-        if (tag.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const tag = await createQuestion(
+            chalk.cyan(
+              'Tag (format: <your-tag> | If it put \'!\' at the beginning, the tag will be excluded.). Type "back" to go back: '
+            )
+          );
+          if (tag.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!tag.trim()) {
+            console.log(chalk.red('Please enter a tag.'));
+            continue;
+          }
+          console.log(chalk.blue(`Tag:`), `${chalk.green(`${chalk.bold(tag)}`)}`);
           console.log('\n');
+          addedSelectors.push(`tag=${tag}`);
           break;
         }
-        if (!tag.trim()) {
-          console.log(chalk.red('Please enter a tag.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Tag:`), `${chalk.green(`${chalk.bold(tag)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`tag=${tag}`);
         break;
       }
       case 'team': {
-        const team = await createQuestion(
-          chalk.cyan(
-            'Team (format: <your-team> | If it put \'!\' at the beginning, the team will be excluded.). Type "back" to go back: '
-          )
-        );
-        if (team.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const team = await createQuestion(
+            chalk.cyan(
+              'Team (format: <your-team> | If it put \'!\' at the beginning, the team will be excluded.). Type "back" to go back: '
+            )
+          );
+          if (team.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!team.trim()) {
+            console.log(chalk.red('Please enter a team.'));
+            continue;
+          }
+          console.log(chalk.blue(`Team:`), `${chalk.green(`${chalk.bold(team)}`)}`);
           console.log('\n');
+          addedSelectors.push(`team=${team}`);
           break;
         }
-        if (!team.trim()) {
-          console.log(chalk.red('Please enter a team.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Team:`), `${chalk.green(`${chalk.bold(team)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`team=${team}`);
         break;
       }
       case 'limit': {
-        const limit = await createQuestion(chalk.cyan('Limit(int). Type "back" to go back: '));
-        if (limit.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const limit = await createQuestion(chalk.cyan('Limit(int). Type "back" to go back: '));
+          if (limit.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!limit.trim()) {
+            console.log(chalk.red('Please enter a limit.'));
+            continue;
+          }
+          console.log(chalk.blue(`Limit:`), `${chalk.green(`${chalk.bold(limit)}`)}`);
           console.log('\n');
+          addedSelectors.push(`limit=${limit}`);
           break;
         }
-        if (!limit.trim()) {
-          console.log(chalk.red('Please enter a limit.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Limit:`), `${chalk.green(`${chalk.bold(limit)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`limit=${limit}`);
         break;
       }
       case 'level': {
-        const level = await createQuestion(
-          chalk.cyan("Exp Level(int or range format: '10' or '10..20'). Type \"back\" to go back: ")
-        );
-        if (level.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const level = await createQuestion(
+            chalk.cyan(
+              "Exp Level(int or range format: '10' or '10..20'). Type \"back\" to go back: "
+            )
+          );
+          if (level.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!level.trim()) {
+            console.log(chalk.red('Please enter a level.'));
+            continue;
+          }
+          console.log(chalk.blue(`Level:`), `${chalk.green(`${chalk.bold(level)}`)}`);
           console.log('\n');
+          addedSelectors.push(`level=${level}`);
           break;
         }
-        if (!level.trim()) {
-          console.log(chalk.red('Please enter a level.'));
-          process.exit(1);
-        }
-        console.log(chalk.blue(`Level:`), `${chalk.green(`${chalk.bold(level)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`level=${level}`);
         break;
       }
       case 'gamemode': {
@@ -191,43 +213,49 @@ export async function addtionalSelectorsQuestion(): Promise<string> {
         break;
       }
       case 'advancements': {
-        const advancement = await createQuestion(
-          chalk.cyan('Advancement(format: <advancement_ID>=true/false). Type "back" to go back: ')
-        );
-        if (advancement.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const advancement = await createQuestion(
+            chalk.cyan('Advancement(format: <advancement_ID>=true/false). Type "back" to go back: ')
+          );
+          if (advancement.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!advancement.trim()) {
+            console.log(chalk.red('Please enter an advancement.'));
+            continue;
+          }
+
+          console.log(chalk.blue(`Advancements:`), `${chalk.green(`${chalk.bold(advancement)}`)}`);
           console.log('\n');
+          addedSelectors.push(`advancements=${advancement}`);
           break;
         }
-        if (!advancement.trim()) {
-          console.log(chalk.red('Please enter an advancement.'));
-          process.exit(1);
-        }
-
-        console.log(chalk.blue(`Advancements:`), `${chalk.green(`${chalk.bold(advancement)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`advancements=${advancement}`);
         break;
       }
       case 'predicate': {
-        const predicate = await createQuestion(
-          chalk.cyan(
-            'Predicate(predicate_id | If it put \'!\' at the beginning, the predicate will be excluded.). Type "back" to go back: '
-          )
-        );
-        if (predicate.trim().toLowerCase() === 'back') {
-          console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+        while (true) {
+          const predicate = await createQuestion(
+            chalk.cyan(
+              'Predicate(predicate_id | If it put \'!\' at the beginning, the predicate will be excluded.). Type "back" to go back: '
+            )
+          );
+          if (predicate.trim().toLowerCase() === 'back') {
+            console.log(chalk.yellow('Cancelled. Back to selector selection.'));
+            console.log('\n');
+            break;
+          }
+          if (!predicate.trim()) {
+            console.log(chalk.red('Please enter a predicate.'));
+            continue;
+          }
+
+          console.log(chalk.blue(`Predicate:`), `${chalk.green(`${chalk.bold(predicate)}`)}`);
           console.log('\n');
+          addedSelectors.push(`predicate=${predicate}`);
           break;
         }
-        if (!predicate.trim()) {
-          console.log(chalk.red('Please enter a predicate.'));
-          process.exit(1);
-        }
-
-        console.log(chalk.blue(`Predicate:`), `${chalk.green(`${chalk.bold(predicate)}`)}`);
-        console.log('\n');
-        addedSelectors.push(`predicate=${predicate}`);
         break;
       }
       case 'sort': {
