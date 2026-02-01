@@ -10,22 +10,29 @@ on:
     types: [submitted]
   issue_comment:
     types: [created]
+  # --- 画像から追加されたイベント ---
+  create: # Branch or tag creation
+  discussion_comment:
+    types: [created] # Discussion comments
+  pull_request_review_comment:
+    types: [created] # Pull request review comments
 
 jobs:
   discord-notification:
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request || github.event_name != 'issue_comment' # PRに関連しないIssueコメントは除外
+    # PRに関連しないIssueコメントは除外
+    if: github.event.issue.pull_request || github.event_name != 'issue_comment'
     steps:
       - name: Prepare Notification Details
         id: info
         run: |
-          # イベント名によって変数の中身をスイッチ
           case "${{ github.event_name }}" in
             "push")
               TITLE="📦 ブランチ${{ github.ref_name }}にpushされました"
               DESC="コミット内容: ${{ github.event.head_commit.message }}"
               URL="${{ github.event.compare }}"
               COLOR=3066993 # Blue
+              BRANCH="${{ github.ref_name }}"
               ;;
             "pull_request")
               if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
@@ -39,14 +46,14 @@ jobs:
                 COLOR=3066993 # Blue
               fi
               DESC="${{ github.event.pull_request.title }}"
-              BRANCH="${{ github.base_ref }} --> ${{ github.head_ref }}"
+              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
               URL="${{ github.event.pull_request.html_url }}"
               ;;
             "pull_request_review")
               TITLE="🔍 レビュー: ${{ github.event.review.state }}"
               DESC="Pull Request: ${{ github.event.pull_request.title }}"
               URL="${{ github.event.review.html_url }}"
-              BRANCH="${{ github.base_ref }} --> ${{ github.head_ref }}"
+              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
               COLOR=15105570 # Orange
               ;;
             "issue_comment")
@@ -56,9 +63,30 @@ jobs:
               BRANCH="${{ github.ref_name }}"
               COLOR=12370112 # Grey
               ;;
+            # --- 新規追加分 ---
+            "create")
+              TITLE="🌿 ${{ github.event.ref_type }}が作成されました: ${{ github.event.ref }}"
+              DESC="リポジトリ: ${{ github.repository }}"
+              URL="https://github.com/${{ github.repository }}/tree/${{ github.event.ref }}"
+              BRANCH="${{ github.event.ref }}"
+              COLOR=3066993 # Blue
+              ;;
+            "discussion_comment")
+              TITLE="💬 ディスカッションにコメントが追加されました"
+              DESC="${{ github.event.comment.body }}"
+              URL="${{ github.event.comment.html_url }}"
+              BRANCH="Discussions"
+              COLOR=12370112 # Grey
+              ;;
+            "pull_request_review_comment")
+              TITLE="📝 PRコードレビューコメント"
+              DESC="${{ github.event.comment.body }}"
+              URL="${{ github.event.comment.html_url }}"
+              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
+              COLOR=15105570 # Orange
+              ;;
           esac
 
-          # 出力変数として保存
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "desc=$DESC" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
@@ -68,22 +96,17 @@ jobs:
       - name: Send Discord Webhook Embed
         shell: bash
         env:
-            # すべての出力をここで環境変数にマッピング
-            # これにより「infoステップが存在するか」のチェックがここ一点に集約されます
-            TITLE: ${{ steps.info.outputs.title }}
-            DESC: ${{ steps.info.outputs.desc }}
-            URL: ${{ steps.info.outputs.url }}
-            COLOR: ${{ steps.info.outputs.color }}
-            BRANCH: ${{ steps.info.outputs.branch }}
-            SENDER: ${{ github.actor }}
+          TITLE: ${{ steps.info.outputs.title }}
+          DESC: ${{ steps.info.outputs.desc }}
+          URL: ${{ steps.info.outputs.url }}
+          COLOR: ${{ steps.info.outputs.color }}
+          BRANCH: ${{ steps.info.outputs.branch }}
+          SENDER: ${{ github.actor }}
         run: |
-          # 1. 念のため、変数が空だった場合のデフォルト値を設定（エラー防止）
           TITLE_VAL="${TITLE:-No Title}"
           DESC_VAL="${DESC:-No Description}"
-          COLOR_VAL="${COLOR:-3066993}" # デフォルトはBlue
+          COLOR_VAL="${COLOR:-3066993}"
 
-          # 2. JSONを組み立てて送信
-          # 特殊文字によるJSON崩れを防ぐため、変数展開時にダブルクォートの置換を挟んでいます
           curl -H "Content-Type: application/json" \
                 -X POST \
                 -d '{
@@ -101,19 +124,6 @@ jobs:
                       { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
                       { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
                     ]
-                  }],
-                  "components": [
-                    {
-                      "type": 1,
-                      "components": [
-                        {
-                          "type": 2,
-                          "style": 5,
-                          "label": "GitHubで確認する",
-                          "url": "'"${URL}"'"
-                        }
-                      ]
-                    }
-                  ]
+                  }]
                 }' \
                 ${{ secrets.DISCORD_WEBHOOK }}
