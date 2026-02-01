@@ -68,9 +68,3 @@ See the [Wiki](https://coming-soon.com/ "Coming soon...") for a detailed guide.
 # Gallery
 
 ![Screenshot 1 - create command](./imgs/1.png "create command")
-
-
-
-
-
-TESTTESTTESTTESTTESTTESTTESTTESTTESTTESTTESTTESTTEST
