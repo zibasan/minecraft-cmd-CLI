@@ -28,15 +28,6 @@ jobs:
           # 通常時用（逆転ロジック：actor自身ではなく相手にメンション）
           get_mention_reverse() {
             case "$1" in
-              "tukuyomil032") echo "<@1100794879019323393>" ;;
-              "zibasan")      echo "<@745902312345567252>" ;;
-              *)              echo "@here" ;;
-            esac
-          }
-
-          # マージ時用（正ロジック：actorをそのままメンション）
-          get_mention_direct() {
-            case "$1" in
               "tukuyomil032") echo "<@745902312345567252>" ;;
               "zibasan")      echo "<@1100794879019323393>" ;;
               *)              echo "@here" ;;
@@ -58,10 +49,9 @@ jobs:
               if [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
                 TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
                 COLOR=6570404
-                # マージ時は「マージした人」と「PR作成者」の両方にメンション（直のロジック）
-                MERGER_MENTION=$(get_mention_direct "${{ github.event.pull_request.merged_by.login }}")
-                AUTHOR_MENTION=$(get_mention_direct "${{ github.event.pull_request.user.login }}")
-                MENTION="$MERGER_MENTION $AUTHOR_MENTION"
+                # マージ時は「マージした人」と「PR作成者」の両方にメンション
+                AUTHOR_MENTION="@here"
+                MENTION="$AUTHOR_MENTION"
               elif [ "${{ github.event.action }}" = "closed" ]; then
                 TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
                 COLOR=15158332
@@ -128,29 +118,30 @@ jobs:
           MENTION: ${{ steps.info.outputs.mention }}
           SENDER: ${{ github.actor }}
         run: |
-          TITLE_VAL="${TITLE:-No Title}"
-          DESC_VAL="${DESC:-No Description}"
-          COLOR_VAL="${COLOR:-3066993}"
+            # 1. 変数のエスケープとデフォルト値の設定
+            TITLE_VAL="${TITLE:-No Title}"
+            DESC_VAL="${DESC:-No Description}"
+            COLOR_VAL="${COLOR:-3066993}"
 
-          # メンションを確実に飛ばすため、contentフィールドにMENTIONを入れます
-          curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{
-                  "content": "'"${MENTION}"'",
-                  "embeds": [{
-                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                    "description": "'"${DESC_VAL//\"/\\\"}"'",
-                    "color": '"${COLOR_VAL}"',
-                    "url": "'"${URL}"'",
-                    "author": {
-                      "name": "'"${SENDER}"'",
-                      "icon_url": "https://github.com/'"${SENDER}"'.png",
-                      "url": "https://github.com/'"${SENDER}"'"
-                    },
-                    "fields": [
-                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                    ]
-                  }]
-                }' \
-                ${{ secrets.DISCORD_WEBHOOK }}
+            # 2. curlでJSONを送信 (componentsブロックを削除)
+            curl -H "Content-Type: application/json" \
+                  -X POST \
+                  -d '{
+                    "content": "'"${MENTION}"'",
+                    "embeds": [{
+                      "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                      "description": "'"${DESC_VAL//\"/\\\"}"'",
+                      "color": '"${COLOR_VAL}"',
+                      "url": "'"${URL}"'",
+                      "author": {
+                        "name": "'"${SENDER}"'",
+                        "icon_url": "https://github.com/'"${SENDER}"'.png",
+                        "url": "https://github.com/'"${SENDER}"'"
+                      },
+                      "fields": [
+                        { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                        { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                      ]
+                    }]
+                  }' \
+                  ${{ secrets.DISCORD_WEBHOOK }}
