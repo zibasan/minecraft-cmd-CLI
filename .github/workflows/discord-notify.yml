@@ -28,8 +28,8 @@ jobs:
         run: |
           # ユーザー名（GitHub ID）によってメンション先を振り分け
           case "${{ github.actor }}" in
-            "tukuyomil032") MENTION="<@1100794879019323393>" ;;
-            "zibasan")   MENTION="<@745902312345567252>" ;;
+            "tukuyomil032") MENTION="<@745902312345567252>" ;;
+            "zibasan")   MENTION="<@1100794879019323393>" ;;
             *)                  MENTION="@here" ;; # 登録外の人は全体メンション
           esac
 
