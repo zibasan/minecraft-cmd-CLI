@@ -10,53 +10,53 @@ on:
     types: [submitted]
   issue_comment:
     types: [created]
-  # --- 画像から追加されたイベント ---
   create: # Branch or tag creation
   discussion_comment:
-    types: [created] # Discussion comments
+    types: [created]
   pull_request_review_comment:
-    types: [created] # Pull request review comments
+    types: [created]
 
 jobs:
   discord-notification:
     runs-on: ubuntu-latest
-    # PRに関連しないIssueコメントは除外
     if: github.event.issue.pull_request || github.event_name != 'issue_comment'
     steps:
-      - name: Set Mention Target
-        id: vars
-        run: |
-          # ユーザー名（GitHub ID）によってメンション先を振り分け
-          case "${{ github.actor }}" in
-            "tukuyomil032") MENTION="<@745902312345567252>" ;;
-            "zibasan")   MENTION="<@1100794879019323393>" ;;
-            *)                  MENTION="@here" ;; # 登録外の人は全体メンション
-          esac
-
-          # セットした変数を次のステップで使えるように出力
-          echo "mention_target=$MENTION" >> $GITHUB_OUTPUT
-
       - name: Prepare Notification Details
         id: info
         run: |
+          # --- IDマッピング関数 ---
+          get_mention() {
+            case "$1" in
+              "tukuyomil032") echo "<@745902312345567252>" ;;
+              "zibasan")      echo "<@1100794879019323393>" ;;
+              *)              echo "@here" ;;
+            esac
+          }
+
+          # 基本のメンション（操作した人）
+          MENTION=$(get_mention "${{ github.actor }}")
+
           case "${{ github.event_name }}" in
             "push")
               TITLE="📦 ブランチ${{ github.ref_name }}にpushされました"
               DESC="コミット内容: ${{ github.event.head_commit.message }}"
               URL="${{ github.event.compare }}"
-              COLOR=3066993 # Blue
+              COLOR=3066993
               BRANCH="${{ github.ref_name }}"
               ;;
             "pull_request")
               if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
                 TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
-                COLOR=6570404 # Purple
+                COLOR=6570404
+                # マージ時は「マージした人」と「PR作成者」の両方にメンション
+                AUTHOR_MENTION=$(get_mention "${{ github.event.pull_request.user.login }}")
+                MENTION="$MENTION $AUTHOR_MENTION"
               elif [ "${{ github.event.action }}" = "closed" ]; then
                 TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
-                COLOR=15158332 # Red
+                COLOR=15158332
               else
                 TITLE=":new: PRが作成されました: #${{ github.event.pull_request.number }}"
-                COLOR=3066993 # Blue
+                COLOR=3066993
               fi
               DESC="${{ github.event.pull_request.title }}"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
@@ -67,36 +67,42 @@ jobs:
               DESC="Pull Request: ${{ github.event.pull_request.title }}"
               URL="${{ github.event.review.html_url }}"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
-              COLOR=15105570 # Orange
+              COLOR=15105570
               ;;
             "issue_comment")
-              TITLE="💬 新しいコメントが作成されました"
+              TITLE="💬 新しいコメント"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
-              BRANCH="${{ github.ref_name }}"
-              COLOR=12370112 # Grey
+              BRANCH="Pull Request #${{ github.event.issue.number }}"
+              COLOR=12370112
               ;;
-            # --- 新規追加分 ---
             "create")
-              TITLE="🌿 ${{ github.event.ref_type }}が作成されました: ${{ github.event.ref }}"
+              TITLE="🌿 ${{ github.event.ref_type }}作成: ${{ github.event.ref }}"
               DESC="リポジトリ: ${{ github.repository }}"
               URL="https://github.com/${{ github.repository }}/tree/${{ github.event.ref }}"
               BRANCH="${{ github.event.ref }}"
-              COLOR=3066993 # Blue
+              COLOR=3066993
               ;;
             "discussion_comment")
-              TITLE="💬 ディスカッションにコメントが追加されました"
+              TITLE="💬 Discussionコメント"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
               BRANCH="Discussions"
-              COLOR=12370112 # Grey
+              COLOR=12370112
               ;;
             "pull_request_review_comment")
-              TITLE="📝 PRコードレビューのコメントが追加されました"
+              TITLE="📝 PRコードレビューコメント"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
-              COLOR=15105570 # Orange
+              COLOR=15105570
+              ;;
+            "pull_request_review_thread")
+              TITLE="🧵 レビュースレッドが${{ github.event.action }}されました"
+              DESC="PR: ${{ github.event.pull_request.title }}"
+              URL="${{ github.event.pull_request.html_url }}"
+              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
+              COLOR=15105570
               ;;
           esac
 
@@ -105,6 +111,7 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "color=$COLOR" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "mention=$MENTION" >> $GITHUB_OUTPUT
 
       - name: Send Discord Webhook Embed
         shell: bash
@@ -114,30 +121,45 @@ jobs:
           URL: ${{ steps.info.outputs.url }}
           COLOR: ${{ steps.info.outputs.color }}
           BRANCH: ${{ steps.info.outputs.branch }}
+          MENTION: ${{ steps.info.outputs.mention }}
           SENDER: ${{ github.actor }}
         run: |
           TITLE_VAL="${TITLE:-No Title}"
           DESC_VAL="${DESC:-No Description}"
           COLOR_VAL="${COLOR:-3066993}"
 
+          # メンションを確実に飛ばすため、contentフィールドにMENTIONを入れます
           curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{
-                  "content": "${{ steps.vars.outputs.mention_target }}",
-                  "embeds": [{
-                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                    "description": "'"${DESC_VAL//\"/\\\"}"'",
-                    "color": '"${COLOR_VAL}"',
-                    "url": "'"${URL}"'",
-                    "author": {
-                      "name": "'"${SENDER}"'",
-                      "icon_url": "https://github.com/'"${SENDER}"'.png",
-                      "url": "https://github.com/'"${SENDER}"'"
-                    },
-                    "fields": [
-                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                    ]
-                  }]
-                }' \
-                ${{ secrets.DISCORD_WEBHOOK }}
+               -X POST \
+               -d '{
+                 "content": "'"${MENTION}"'",
+                 "embeds": [{
+                   "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                   "description": "'"${DESC_VAL//\"/\\\"}"'",
+                   "color": '"${COLOR_VAL}"',
+                   "url": "'"${URL}"'",
+                   "author": {
+                     "name": "'"${SENDER}"'",
+                     "icon_url": "https://github.com/'"${SENDER}"'.png",
+                     "url": "https://github.com/'"${SENDER}"'"
+                   },
+                   "fields": [
+                     { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                     { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                   ]
+                 }],
+                 "components": [
+                   {
+                     "type": 1,
+                     "components": [
+                       {
+                         "type": 2,
+                         "style": 5,
+                         "label": "GitHubで確認する",
+                         "url": "'"${URL}"'"
+                       }
+                     ]
+                   }
+                 ]
+               }' \
+               ${{ secrets.DISCORD_WEBHOOK }}
