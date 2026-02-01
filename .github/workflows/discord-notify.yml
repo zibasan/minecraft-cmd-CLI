@@ -81,9 +81,9 @@ jobs:
                       "url": "https://github.com/${{ github.actor }}"
                     },
                     "timestamp": {},
-                    "field": [
-                      { name: '👤 操作したユーザー', value: ${{ github.actor }}, inline: true },
-                      { name: ':deciduous_tree: ブランチ', value: ${{ steps.info.outputs.branch }}, inline: true },
+                    "fields": [
+                      { name: "👤 操作したユーザー", value: "${{ github.actor }}", inline: true },
+                      { name: ":deciduous_tree: ブランチ", value: "${{ steps.info.outputs.branch }}", inline: true },
 
                     ]
                   }]
