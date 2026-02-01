@@ -25,7 +25,17 @@ jobs:
         id: info
         run: |
           # --- IDマッピング関数 ---
-          get_mention() {
+          # 通常時用（逆転ロジック：actor自身ではなく相手にメンション）
+          get_mention_reverse() {
+            case "$1" in
+              "tukuyomil032") echo "<@1100794879019323393>" ;;
+              "zibasan")      echo "<@745902312345567252>" ;;
+              *)              echo "@here" ;;
+            esac
+          }
+
+          # マージ時用（正ロジック：actorをそのままメンション）
+          get_mention_direct() {
             case "$1" in
               "tukuyomil032") echo "<@745902312345567252>" ;;
               "zibasan")      echo "<@1100794879019323393>" ;;
@@ -33,8 +43,8 @@ jobs:
             esac
           }
 
-          # 基本のメンション（操作した人）
-          MENTION=$(get_mention "${{ github.actor }}")
+          # 基本のメンション（操作した人・通常時は逆転ロジック）
+          MENTION=$(get_mention_reverse "${{ github.actor }}")
 
           case "${{ github.event_name }}" in
             "push")
@@ -45,12 +55,13 @@ jobs:
               BRANCH="${{ github.ref_name }}"
               ;;
             "pull_request")
-              if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+              if [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
                 TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
                 COLOR=6570404
-                # マージ時は「マージした人」と「PR作成者」の両方にメンション
-                AUTHOR_MENTION=$(get_mention "${{ github.event.pull_request.user.login }}")
-                MENTION="$MENTION $AUTHOR_MENTION"
+                # マージ時は「マージした人」と「PR作成者」の両方にメンション（直のロジック）
+                MERGER_MENTION=$(get_mention_direct "${{ github.event.pull_request.merged_by.login }}")
+                AUTHOR_MENTION=$(get_mention_direct "${{ github.event.pull_request.user.login }}")
+                MENTION="$MERGER_MENTION $AUTHOR_MENTION"
               elif [ "${{ github.event.action }}" = "closed" ]; then
                 TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
                 COLOR=15158332
@@ -77,30 +88,23 @@ jobs:
               COLOR=12370112
               ;;
             "create")
-              TITLE="🌿 ${{ github.event.ref_type }}作成: ${{ github.event.ref }}"
+              TITLE="🌿 ${{ github.event.ref_type }}の作成: ${{ github.event.ref }}"
               DESC="リポジトリ: ${{ github.repository }}"
               URL="https://github.com/${{ github.repository }}/tree/${{ github.event.ref }}"
               BRANCH="${{ github.event.ref }}"
               COLOR=3066993
               ;;
             "discussion_comment")
-              TITLE="💬 Discussionコメント"
+              TITLE="💬 Discussionコメントが作成されました"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
               BRANCH="Discussions"
               COLOR=12370112
               ;;
             "pull_request_review_comment")
-              TITLE="📝 PRコードレビューコメント"
+              TITLE="📝 PRのコードレビューコメントが作成されました"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
-              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
-              COLOR=15105570
-              ;;
-            "pull_request_review_thread")
-              TITLE="🧵 レビュースレッドが${{ github.event.action }}されました"
-              DESC="PR: ${{ github.event.pull_request.title }}"
-              URL="${{ github.event.pull_request.html_url }}"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
               COLOR=15105570
               ;;
@@ -130,36 +134,23 @@ jobs:
 
           # メンションを確実に飛ばすため、contentフィールドにMENTIONを入れます
           curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{
-                 "content": "'"${MENTION}"'",
-                 "embeds": [{
-                   "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                   "description": "'"${DESC_VAL//\"/\\\"}"'",
-                   "color": '"${COLOR_VAL}"',
-                   "url": "'"${URL}"'",
-                   "author": {
-                     "name": "'"${SENDER}"'",
-                     "icon_url": "https://github.com/'"${SENDER}"'.png",
-                     "url": "https://github.com/'"${SENDER}"'"
-                   },
-                   "fields": [
-                     { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                     { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                   ]
-                 }],
-                 "components": [
-                   {
-                     "type": 1,
-                     "components": [
-                       {
-                         "type": 2,
-                         "style": 5,
-                         "label": "GitHubで確認する",
-                         "url": "'"${URL}"'"
-                       }
-                     ]
-                   }
-                 ]
-               }' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+                -X POST \
+                -d '{
+                  "content": "'"${MENTION}"'",
+                  "embeds": [{
+                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                    "description": "'"${DESC_VAL//\"/\\\"}"'",
+                    "color": '"${COLOR_VAL}"',
+                    "url": "'"${URL}"'",
+                    "author": {
+                      "name": "'"${SENDER}"'",
+                      "icon_url": "https://github.com/'"${SENDER}"'.png",
+                      "url": "https://github.com/'"${SENDER}"'"
+                    },
+                    "fields": [
+                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                    ]
+                  }]
+                }' \
+                ${{ secrets.DISCORD_WEBHOOK }}
