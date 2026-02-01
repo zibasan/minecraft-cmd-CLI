@@ -23,6 +23,19 @@ jobs:
     # PRに関連しないIssueコメントは除外
     if: github.event.issue.pull_request || github.event_name != 'issue_comment'
     steps:
+      - name: Set Mention Target
+        id: vars
+        run: |
+          # ユーザー名（GitHub ID）によってメンション先を振り分け
+          case "${{ github.actor }}" in
+            "tukuyomil032") MENTION="<@745902312345567252>" ;;
+            "zibasan")   MENTION="<@1100794879019323393>" ;;
+            *)                  MENTION="@here" ;; # 登録外の人は全体メンション
+          esac
+
+          # セットした変数を次のステップで使えるように出力
+          echo "mention_target=$MENTION" >> $GITHUB_OUTPUT
+
       - name: Prepare Notification Details
         id: info
         run: |
@@ -79,7 +92,7 @@ jobs:
               COLOR=12370112 # Grey
               ;;
             "pull_request_review_comment")
-              TITLE="📝 PRコードレビューコメント"
+              TITLE="📝 PRコードレビューのコメントが追加されました"
               DESC="${{ github.event.comment.body }}"
               URL="${{ github.event.comment.html_url }}"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
@@ -110,6 +123,7 @@ jobs:
           curl -H "Content-Type: application/json" \
                 -X POST \
                 -d '{
+                  "content": "${{ steps.vars.outputs.mention_target }}",
                   "embeds": [{
                     "title": "'"${TITLE_VAL//\"/\\\"}"'",
                     "description": "'"${DESC_VAL//\"/\\\"}"'",
