@@ -28,15 +28,6 @@ jobs:
           # 通常時用（逆転ロジック：actor自身ではなく相手にメンション）
           get_mention_reverse() {
             case "$1" in
-              "tukuyomil032") echo "<@1100794879019323393>" ;;
-              "zibasan")      echo "<@745902312345567252>" ;;
-              *)              echo "@here" ;;
-            esac
-          }
-
-          # マージ時用（正ロジック：actorをそのままメンション）
-          get_mention_direct() {
-            case "$1" in
               "tukuyomil032") echo "<@745902312345567252>" ;;
               "zibasan")      echo "<@1100794879019323393>" ;;
               *)              echo "@here" ;;
