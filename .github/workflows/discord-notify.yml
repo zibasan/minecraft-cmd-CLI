@@ -85,12 +85,6 @@ jobs:
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
               COLOR=15105570 # Orange
               ;;
-            "pull_request_review_thread")
-              TITLE="🧵 PRレビューのスレッドが${{ github.event.action }}されました"
-              DESC="PR: ${{ github.event.pull_request.title }}"
-              URL="${{ github.event.pull_request.html_url }}"
-              BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
-              COLOR=15105570 # Orange
               ;;
           esac
 
@@ -115,35 +109,35 @@ jobs:
           COLOR_VAL="${COLOR:-3066993}"
 
           curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{
-                 "embeds": [{
-                   "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                   "description": "'"${DESC_VAL//\"/\\\"}"'",
-                   "color": '"${COLOR_VAL}"',
-                   "url": "'"${URL}"'",
-                   "author": {
-                     "name": "'"${SENDER}"'",
-                     "icon_url": "https://github.com/'"${SENDER}"'.png",
-                     "url": "https://github.com/'"${SENDER}"'"
-                   },
-                   "fields": [
-                     { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                     { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                   ]
-                 }],
-                 "components": [
-                   {
-                     "type": 1,
-                     "components": [
-                       {
-                         "type": 2,
-                         "style": 5,
-                         "label": "GitHubで確認する",
-                         "url": "'"${URL}"'"
-                       }
-                     ]
-                   }
-                 ]
-               }' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+                -X POST \
+                -d '{
+                  "embeds": [{
+                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                    "description": "'"${DESC_VAL//\"/\\\"}"'",
+                    "color": '"${COLOR_VAL}"',
+                    "url": "'"${URL}"'",
+                    "author": {
+                      "name": "'"${SENDER}"'",
+                      "icon_url": "https://github.com/'"${SENDER}"'.png",
+                      "url": "https://github.com/'"${SENDER}"'"
+                    },
+                    "fields": [
+                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                    ]
+                  }],
+                  "components": [
+                    {
+                      "type": 1,
+                      "components": [
+                        {
+                          "type": 2,
+                          "style": 5,
+                          "label": "GitHubで確認する",
+                          "url": "'"${URL}"'"
+                        }
+                      ]
+                    }
+                  ]
+                }' \
+                ${{ secrets.DISCORD_WEBHOOK }}
