@@ -49,8 +49,8 @@ jobs:
                 TITLE=":white_check_mark: PRがMergeされました: #${{ github.event.pull_request.number }}"
                 COLOR=6570404
                 # マージ時は「マージした人」と「PR作成者」の両方にメンション
-                AUTHOR_MENTION=$(get_mention "${{ github.event.pull_request.user.login }}")
-                MENTION="$MENTION $AUTHOR_MENTION"
+                AUTHOR_MENTION="@here")
+                MENTION="$AUTHOR_MENTION"
               elif [ "${{ github.event.action }}" = "closed" ]; then
                 TITLE=":x: PRがクローズされました: #${{ github.event.pull_request.number }}"
                 COLOR=15158332
@@ -130,36 +130,23 @@ jobs:
 
           # メンションを確実に飛ばすため、contentフィールドにMENTIONを入れます
           curl -H "Content-Type: application/json" \
-               -X POST \
-               -d '{
-                 "content": "'"${MENTION}"'",
-                 "embeds": [{
-                   "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                   "description": "'"${DESC_VAL//\"/\\\"}"'",
-                   "color": '"${COLOR_VAL}"',
-                   "url": "'"${URL}"'",
-                   "author": {
-                     "name": "'"${SENDER}"'",
-                     "icon_url": "https://github.com/'"${SENDER}"'.png",
-                     "url": "https://github.com/'"${SENDER}"'"
-                   },
-                   "fields": [
-                     { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                     { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                   ]
-                 }],
-                 "components": [
-                   {
-                     "type": 1,
-                     "components": [
-                       {
-                         "type": 2,
-                         "style": 5,
-                         "label": "GitHubで確認する",
-                         "url": "'"${URL}"'"
-                       }
-                     ]
-                   }
-                 ]
-               }' \
+                -X POST \
+                -d '{
+                  "content": "'"${MENTION}"'",
+                  "embeds": [{
+                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                    "description": "'"${DESC_VAL//\"/\\\"}"'",
+                    "color": '"${COLOR_VAL}"',
+                    "url": "'"${URL}"'",
+                    "author": {
+                      "name": "'"${SENDER}"'",
+                      "icon_url": "https://github.com/'"${SENDER}"'.png",
+                      "url": "https://github.com/'"${SENDER}"'"
+                    },
+                    "fields": [
+                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                    ]
+                  }],
+                }' \
                ${{ secrets.DISCORD_WEBHOOK }}
