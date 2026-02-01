@@ -127,29 +127,30 @@ jobs:
           MENTION: ${{ steps.info.outputs.mention }}
           SENDER: ${{ github.actor }}
         run: |
-          TITLE_VAL="${TITLE:-No Title}"
-          DESC_VAL="${DESC:-No Description}"
-          COLOR_VAL="${COLOR:-3066993}"
+            # 1. 変数のエスケープとデフォルト値の設定
+            TITLE_VAL="${TITLE:-No Title}"
+            DESC_VAL="${DESC:-No Description}"
+            COLOR_VAL="${COLOR:-3066993}"
 
-          # メンションを確実に飛ばすため、contentフィールドにMENTIONを入れます
-          curl -H "Content-Type: application/json" \
-                -X POST \
-                -d '{
-                  "content": "'"${MENTION}"'",
-                  "embeds": [{
-                    "title": "'"${TITLE_VAL//\"/\\\"}"'",
-                    "description": "'"${DESC_VAL//\"/\\\"}"'",
-                    "color": '"${COLOR_VAL}"',
-                    "url": "'"${URL}"'",
-                    "author": {
-                      "name": "'"${SENDER}"'",
-                      "icon_url": "https://github.com/'"${SENDER}"'.png",
-                      "url": "https://github.com/'"${SENDER}"'"
-                    },
-                    "fields": [
-                      { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                      { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
-                    ]
-                  }],
-                }' \
-               ${{ secrets.DISCORD_WEBHOOK }}
+            # 2. curlでJSONを送信 (componentsブロックを削除)
+            curl -H "Content-Type: application/json" \
+                  -X POST \
+                  -d '{
+                    "content": "'"${MENTION}"'",
+                    "embeds": [{
+                      "title": "'"${TITLE_VAL//\"/\\\"}"'",
+                      "description": "'"${DESC_VAL//\"/\\\"}"'",
+                      "color": '"${COLOR_VAL}"',
+                      "url": "'"${URL}"'",
+                      "author": {
+                        "name": "'"${SENDER}"'",
+                        "icon_url": "https://github.com/'"${SENDER}"'.png",
+                        "url": "https://github.com/'"${SENDER}"'"
+                      },
+                      "fields": [
+                        { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
+                        { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                      ]
+                    }]
+                  }' \
+                  ${{ secrets.DISCORD_WEBHOOK }}
