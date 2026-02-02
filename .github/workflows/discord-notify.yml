@@ -42,8 +42,14 @@ jobs:
               local json="$1"
               local target_url="$2"
               local count=$(echo "$json" | jq '. | length')
-              # 最新4件を取得して整形 (7桁SHA メッセージ1行目)
-              local list=$(echo "$json" | jq -r 'reverse | .[:4] | .[] | "\(.sha[0:7]) \(.message | split("\n")[0])"' | sed 's/^/`/; s/$/`/')
+
+              # 2. 最新4件を整形
+              # (.sha // .id): shaがなければidを使う
+              # (.commit.message // .message): PR API用とPushイベント用で出し分け
+              local list=$(echo "$json" | jq -r '
+                reverse | .[:4] | .[] |
+                "\((.sha // .id)[0:7]) \((.commit.message // .message) | split("\n")[0])"
+                ' | sed 's/^/`/; s/$/`/')
 
               echo "$list"
               if [ "$count" -gt 4 ]; then
