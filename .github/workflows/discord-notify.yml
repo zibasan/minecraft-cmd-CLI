@@ -1,11 +1,14 @@
 name: Discord Component Notification
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ "master", "dev" ]
   pull_request:
     branches: [ "master", "dev" ]
-    types: [opened, closed]
+    types: [opened, closed, synchronize]
   pull_request_review:
     types: [submitted]
   issue_comment:
@@ -34,13 +37,28 @@ jobs:
             esac
           }
 
+          # --- コミット整形関数 ---
+            format_commits() {
+              local json="$1"
+              local target_url="$2"
+              local count=$(echo "$json" | jq '. | length')
+              # 最新4件を取得して整形 (7桁SHA メッセージ1行目)
+              local list=$(echo "$json" | jq -r 'reverse | .[:4] | .[] | "\(.sha[0:7]) \(.message | split("\n")[0])"' | sed 's/^/`/; s/$/`/')
+
+              echo "$list"
+              if [ "$count" -gt 4 ]; then
+                echo "他 [$((count - 4)) 件のコミット]($target_url)..."
+              fi
+            }
+
           # 基本のメンション（操作した人・通常時は逆転ロジック）
           MENTION=$(get_mention_reverse "${{ github.actor }}")
 
           case "${{ github.event_name }}" in
             "push")
-              TITLE="📦 ブランチ${{ github.ref_name }}にpushされました"
-              DESC="コミット内容: ${{ github.event.head_commit.message }}"
+              TITLE="📦 ブランチ${{ github.ref_name }}にpushされました: ${{ github.event.head_commit.message }}"
+              COMMITS_JSON='${{ toJson(github.event.commits) }}'
+              DESC="**コミット内容**\n$(format_commits "$COMMITS_JSON")"
               URL="${{ github.event.compare }}"
               MENTION="@here"
               COLOR=3066993
@@ -60,9 +78,15 @@ jobs:
                 TITLE=":new: PRが作成されました: #${{ github.event.pull_request.number }}"
                 COLOR=3066993
               fi
-              DESC="${{ github.event.pull_request.title }}"
+              COMMITS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" ${{ github.event.pull_request.commits_url }})
+              COMMIT_LIST=$(format_commits "$COMMITS_JSON" "$COMMITS_PAGE_URL")
+              DESC="🎯 **リクエストされたコミット**\n$COMMIT_LIST"
               BRANCH="${{ github.event.pull_request.base.ref }} <-- ${{ github.event.pull_request.head.ref }}"
-              URL="${{ github.event.pull_request.html_url }}"
+
+              PR_URL="${{ github.event.pull_request.html_url }}"
+              URL="$PR_URL"
+              # PRの場合はコミットタブのURLを生成
+              COMMITS_PAGE_URL="${PR_URL}/commits"
               ;;
             "pull_request_review")
               TITLE="🔍 レビュー: ${{ github.event.review.state }}"
@@ -119,6 +143,8 @@ jobs:
           MENTION: ${{ steps.info.outputs.mention }}
           SENDER: ${{ github.actor }}
         run: |
+            SAFE_DESC=$(printf '%s' "$DESC" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+
             # 1. 変数のエスケープとデフォルト値の設定
             TITLE_VAL="${TITLE:-No Title}"
             DESC_VAL="${DESC:-No Description}"
@@ -141,7 +167,7 @@ jobs:
                       },
                       "fields": [
                         { "name": "👤 操作したユーザー", "value": "'"${SENDER}"'", "inline": true },
-                        { "name": ":deciduous_tree: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
+                        { "name": ":herb: ブランチ", "value": "'"${BRANCH}"'", "inline": true }
                       ]
                     }]
                   }' \
