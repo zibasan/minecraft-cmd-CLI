@@ -4,6 +4,7 @@ import clipboard from 'clipboardy';
 import { createInterface } from 'readline';
 import ora from 'ora';
 import { fileURLToPath } from 'url';
+// path not required here
 
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
 
