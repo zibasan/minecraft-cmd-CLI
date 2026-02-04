@@ -91,6 +91,16 @@ jobs:
               DESC="🎯 **リクエストされたコミット**\n$COMMIT_LIST"
               BRANCH="[${{ github.event.pull_request.base.ref }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.event.pull_request.base.ref }}) <-- [${{ github.event.pull_request.head.ref }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.event.pull_request.head.ref }})"
               ;;
+            "create")
+              REPO="${{ github.repository }}"
+              DEF_BRANCH="${{ github.event.master_branch }}"
+              TITLE=":herb: 新規ブランチが作成されました: ${{ github.event.ref }}"
+              REF=${{ github.event.ref }}
+
+              PR_CREATE_URL="https://github.com/$REPO/$REF"
+
+              DESC=":herb: デフォルトブランチ: ${{ github.event.master_branch }}\n:diamond_shape_with_a_dot_inside: [Pull Request一覧へ]($PR_CREATE_URL)"
+              URL="https://github.com/$REPO/tree/$REF" ;;
             *)
               # その他のイベント用デフォルト
               TITLE="📢 イベント: ${{ github.event_name }}"
