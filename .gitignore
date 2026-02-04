@@ -41,9 +41,3 @@ scripts/*
 
 # Husky
 .husky/_/
-
-# メモ
-/memo.txt
-
-# TODO
-/TODO.md
