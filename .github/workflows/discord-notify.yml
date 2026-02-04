@@ -100,7 +100,7 @@ jobs:
               PR_CREATE_URL="https://github.com/$REPO/compare/$DEF_BRANCH...$REF"
 
               DESC=":herb: デフォルトブランチ: ${{ github.event.master_branch }}\n:diamond_shape_with_a_dot_inside: [新規ブランチ$REFでPull Requestを作成]($PR_CREATE_URL)"
-              URL="https://github.com/$REPO/tree/$REF"
+              URL="https://github.com/$REPO/tree/$REF" ;;
             *)
               # その他のイベント用デフォルト
               TITLE="📢 イベント: ${{ github.event_name }}"
