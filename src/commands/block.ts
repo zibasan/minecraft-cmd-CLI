@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { createQuestion } from './create.js';
+import clipboard from 'clipboardy';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 
@@ -356,56 +357,115 @@ export function blockCommand(): Command {
 
       const enquirerModule: any = await import('enquirer');
       const Select = enquirerModule.Select || enquirerModule.default?.Select;
-      let chosenCat = 'All';
-      if (Select) {
-        const sel = new Select({
-          name: 'category',
-          message: 'Choose category to search:',
-          choices: categories,
-        });
-        try {
-          chosenCat = String(await sel.run());
-        } catch {
-          chosenCat = 'All';
-        }
-      }
-
-      let filtered = list;
-      if (chosenCat !== 'All') {
-        const keys = CATEGORY_KEYWORDS[chosenCat] || [];
-        filtered = list.filter((b) => keys.some((k) => b.includes(k)));
-      }
-
-      if (!filtered.length) {
-        console.log(chalk.yellow('No blocks match that category.'));
-        return;
-      }
-
       const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
-      if (AutoComplete) {
-        const ac = new AutoComplete({
-          name: 'block',
-          message: `Search blocks (${filtered.length}) — type to filter:`,
-          choices: filtered.map((b) => ({ name: `minecraft:${b}`, value: b })),
-          limit: 20,
-        });
-        try {
-          const pick = String(await ac.run());
-          console.log(chalk.green('Selected:'), `minecraft:${pick}`);
-        } catch {
-          console.log(chalk.red('Search cancelled.'));
+
+      // Outer loop: allow re-selecting categories until user exits
+      while (true) {
+        let chosenCat = 'All';
+        if (Select) {
+          const sel = new Select({
+            name: 'category',
+            message: 'Choose category to search:',
+            choices: categories,
+          });
+          try {
+            chosenCat = String(await sel.run());
+          } catch {
+            chosenCat = 'All';
+          }
         }
-      } else {
-        // Fallback: simple substring prompt then show matches
-        const query = (await createQuestion(chalk.cyan('Search term (substring): '))).trim();
-        if (!query) return;
-        const matches = filtered.filter((b) => b.includes(query)).slice(0, 200);
-        if (!matches.length) {
-          console.log(chalk.yellow('No matches found.'));
+
+        let filtered = list;
+        if (chosenCat !== 'All') {
+          const keys = CATEGORY_KEYWORDS[chosenCat] || [];
+          filtered = list.filter((b) => keys.some((k) => b.includes(k)));
+        }
+
+        if (!filtered.length) {
+          console.log(chalk.yellow('No blocks match that category.'));
+          // loop back to category selection
+          continue;
+        }
+
+        // Single AutoComplete prompt per category. 'loop: false' prevents list wrapping.
+        if (AutoComplete) {
+          const choices = [
+            { name: '<< Back to categories >>', value: '__BACK__' },
+            ...filtered.map((b) => ({ name: `minecraft:${b}`, value: b })),
+          ];
+          const ac = new AutoComplete({
+            name: 'block',
+            message: `Search blocks (${filtered.length}) — type to filter:`,
+            choices,
+            limit: 20,
+            loop: false,
+          });
+          try {
+            const pick = String(await ac.run());
+            if (pick === '__BACK__') {
+              // immediately go back to category selection without additional prompts
+              continue;
+            }
+            console.log(chalk.green('Selected:'), `minecraft:${pick}`);
+            const yn = (
+              await createQuestion(chalk.cyan('Copy selected block ID to clipboard? (y/N): '))
+            ).trim();
+            if (yn.toLowerCase() === 'y') {
+              try {
+                await clipboard.write(`minecraft:${pick}`);
+                console.log(chalk.green('✓ Copied to clipboard: '), `minecraft:${pick}`);
+              } catch {
+                console.log(chalk.red('✗ Failed to copy to clipboard'));
+              }
+            } else {
+              console.log(chalk.blue('Skipped copying to clipboard.'));
+            }
+            return;
+          } catch {
+            console.log(chalk.red('Search cancelled.'));
+            return;
+          }
+        } else {
+          // Fallback: substring search prompt
+          const query = (await createQuestion(chalk.cyan('Search term (substring): '))).trim();
+          if (!query) {
+            // go back to category selection
+            continue;
+          }
+          const matches = filtered.filter((b) => b.includes(query)).slice(0, 200);
+          if (!matches.length) {
+            console.log(chalk.yellow('No matches found.'));
+            continue;
+          }
+          console.log(chalk.green(`Matches (${matches.length}):`));
+          matches.forEach((m) => console.log(` - minecraft:${m}`));
+          const pick = (
+            await createQuestion(chalk.cyan('Enter block id to copy (or press Enter to go back): '))
+          ).trim();
+          if (!pick) {
+            // go back to category selection
+            continue;
+          }
+          const normalized = pick.startsWith('minecraft:') ? pick.slice(10) : pick;
+          if (!matches.includes(normalized)) {
+            console.log(chalk.yellow(`ID ${pick} not found in current matches.`));
+            continue;
+          }
+          const yn = (
+            await createQuestion(chalk.cyan('Copy selected block ID to clipboard? (y/N): '))
+          ).trim();
+          if (yn.toLowerCase() === 'y') {
+            try {
+              await clipboard.write(`minecraft:${normalized}`);
+              console.log(chalk.green('✓ Copied to clipboard: '), `minecraft:${normalized}`);
+            } catch {
+              console.log(chalk.red('✗ Failed to copy to clipboard'));
+            }
+          } else {
+            console.log(chalk.blue('Skipped copying to clipboard.'));
+          }
           return;
         }
-        console.log(chalk.green(`Matches (${matches.length}):`));
-        matches.forEach((m) => console.log(` - minecraft:${m}`));
       }
     });
 
