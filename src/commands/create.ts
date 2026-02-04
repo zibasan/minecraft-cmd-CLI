@@ -34,22 +34,14 @@ async function loadBlocksList(): Promise<string[]> {
       const list = (mod?.BLOCKS || mod?.default || []) as string[];
       return list;
     } catch {
-      // Fallback to web fetch if module not available
+      // If blocks file is not available, log a warning and return empty array
+      console.warn(
+        chalk.yellow(
+          'Warning: blocks.ts/blocks.js file not found. Block autocomplete and validation will be disabled.'
+        )
+      );
+      return [];
     }
-  }
-
-  const url = 'https://minecraft.wiki/w/Java_Edition_data_values#Blocks';
-  try {
-    const res = await fetch(url);
-    const html = await res.text();
-    const matches = Array.from(
-      new Set(Array.from(html.matchAll(/\b([a-z0-9_]+)\b/g)).map((m) => m[1]))
-    );
-    const filtered = matches.filter((s) => /[a-z]/.test(s) && s.length > 2);
-    const uniq = Array.from(new Set(filtered)).sort();
-    return uniq;
-  } catch {
-    return [];
   }
 }
 
