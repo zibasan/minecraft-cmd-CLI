@@ -586,7 +586,6 @@ export const BLOCKS = [
   'muddy_mangrove_roots',
   'mushroom_stem',
   'mycelium',
-  'n',
   'nether_brick_fence',
   'nether_brick_slab',
   'nether_brick_stairs',
