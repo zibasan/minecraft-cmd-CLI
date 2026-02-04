@@ -142,6 +142,7 @@ export async function selectFromList(message: string, choices: string[]): Promis
     return result;
   } finally {
     stdin.removeListener('data', onData as any);
+    stdin.pause();
   }
 }
 
