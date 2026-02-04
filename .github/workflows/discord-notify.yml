@@ -97,10 +97,11 @@ jobs:
               TITLE=":herb: 新規ブランチが作成されました: ${{ github.event.ref }}"
               REF=${{ github.event.ref }}
 
-              PR_CREATE_URL="https://github.com/$REPO/$REF"
+              PR_CREATE_URL="https://github.com/$REPO/pulls"
 
-              DESC=":herb: デフォルトブランチ: ${{ github.event.master_branch }}\n:diamond_shape_with_a_dot_inside: [Pull Request一覧へ]($PR_CREATE_URL)"
-              URL="https://github.com/$REPO/tree/$REF" ;;
+              DESC=":herb: デフォルトブランチ: ${{ github.event.master_branch }}\n\n:diamond_shape_with_a_dot_inside: [Pull Request一覧へ]($PR_CREATE_URL)"
+              URL="https://github.com/$REPO/tree/$REF"
+              BRANCH="[${{ github.event.ref }}](https://github.com/$REPO/tree/$REF)" ;;
             *)
               # その他のイベント用デフォルト
               TITLE="📢 イベント: ${{ github.event_name }}"
