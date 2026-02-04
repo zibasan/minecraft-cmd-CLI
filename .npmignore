@@ -53,7 +53,7 @@ README.dev.md
 CONTRIBUTING.md
 
 # Documentation
-docs/
+docs/*.md
 
 # Zip files
 *.zip

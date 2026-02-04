@@ -41,8 +41,5 @@ temp/
 # Husky
 .husky/_
 
-# メモ
-/memo.txt
-
-# TODO
-/TODO.md
+# documents
+docs/*.md
