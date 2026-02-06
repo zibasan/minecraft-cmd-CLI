@@ -19,6 +19,7 @@
     "prepare": "husky",
     "prepublishOnly": "pnpm run build",
     "dev": "ts-node --esm src/index.ts",
+    "generate-blocks": "ts-node scripts/generate-blocks.ts",
     "start": "pnpm build && node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
@@ -48,7 +49,9 @@
     "chalk": "^5.6.2",
     "clipboardy": "^5.1.0",
     "commander": "^14.0.2",
+    "enquirer": "^2.3.6",
     "inquirer": "^13.2.1",
+    "minecraft-data": "^3.103.0",
     "ora": "^9.1.0",
     "typescript-eslint": "^8.54.0",
     "yargs": "^18.0.0"
