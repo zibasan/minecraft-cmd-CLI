@@ -6,7 +6,10 @@ import ora from 'ora';
 import { fileURLToPath } from 'url';
 // path not required here
 
+import { sendNotify } from '../features/notifier.js';
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
+
+import { info, success, warn, error } from '../util/emojis.js';
 
 export function createQuestion(query: string): Promise<string> {
   const rl = createInterface({
@@ -143,26 +146,34 @@ export function createCommand(): Command {
   const cmd = new Command('create');
   cmd.description('Generate Minecraft commands');
   cmd.option('-c, --copy [boolean]', 'Whether copy command to clipboard', true);
+  cmd.option('-s, --silent', 'Whether nofity when the command copied');
+
   cmd.action(async (options) => {
     switch (options.copy) {
       case 'true': {
         console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copy to clipboard')}`
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copied to clipboard')}`
         );
         break;
       }
       case 'false': {
         console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will not be copy to clipboard')}`
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will not be copied to clipboard')}`
         );
         break;
       }
       default: {
         console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copy to clipboard')}`
+          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copied to clipboard')}`
         );
         break;
       }
+    }
+
+    if (options.silent) {
+      console.log(
+        `${chalk.bgYellow.black(' WARN ')} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
+      );
     }
 
     const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
@@ -222,7 +233,7 @@ export function createCommand(): Command {
         let itemName = '';
         do {
           itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
-          if (!itemName.trim()) console.log(chalk.red('Please enter an item name.'));
+          if (!itemName.trim()) console.log(error, chalk.red('Please enter an item name.'));
         } while (!itemName.trim());
         console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
         console.log('\n');
@@ -238,7 +249,7 @@ export function createCommand(): Command {
             break;
           }
           if (!/^[0-9]+$/.test(amount.trim())) {
-            console.log(chalk.red('Amount must be a positive integer.'));
+            console.log(error, chalk.red('Amount must be a positive integer.'));
             amount = '';
           }
         } while (!amount.trim());
@@ -255,7 +266,7 @@ export function createCommand(): Command {
             chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): ')
           );
           if (!destination.trim()) {
-            console.log(chalk.red('Please enter a destination.'));
+            console.log(error, chalk.red('Please enter a destination.'));
             continue;
           }
           // allow selector like @p or coordinates
@@ -263,6 +274,7 @@ export function createCommand(): Command {
           const isCoords = isValidPosition(destination.trim());
           if (!isSelector && !isCoords) {
             console.log(
+              error,
               chalk.red(
                 'Destination must be a selector (e.g., @p) or three coordinates (e.g., 0 64 0).'
               )
@@ -281,7 +293,7 @@ export function createCommand(): Command {
         do {
           sbPosition = await createQuestion(chalk.cyan('Position (e.g., 0 64 0): '));
           if (!sbPosition.trim()) {
-            console.log(chalk.red('Please enter a position.'));
+            console.log(error, chalk.red('Please enter a position.'));
             continue;
           }
 
@@ -310,7 +322,7 @@ export function createCommand(): Command {
           const normalized = sbBlock.startsWith('minecraft:') ? sbBlock.slice(10) : sbBlock;
           const exists = blocks.includes(normalized);
           if (!sbPosition.trim() || !sbBlock.trim()) {
-            console.log(chalk.red('Please enter position and block.'));
+            console.log(error, chalk.red('Please enter position and block.'));
             continue;
           }
           if (!exists) {
@@ -320,7 +332,10 @@ export function createCommand(): Command {
               console.log(chalk.yellow('Did you mean:'));
               suggestions.forEach((s) => console.log(`  - ${s}`));
             }
-            console.log(chalk.cyan('Please enter a valid block ID (try Tab to autocomplete).'));
+            console.log(
+              error,
+              chalk.cyan('Please enter a valid block ID (try Tab to autocomplete).')
+            );
             sbBlock = '';
             continue;
           }
@@ -338,6 +353,7 @@ export function createCommand(): Command {
           fillFrom = await createQuestion(chalk.cyan('From position (e.g., 0 64 0): '));
           if (!isValidPosition(fillFrom)) {
             console.log(
+              error,
               chalk.red('From position must be three coordinates (e.g., 0 64 0) or use ~ notation.')
             );
             fillFrom = '';
@@ -346,6 +362,7 @@ export function createCommand(): Command {
           fillTo = await createQuestion(chalk.cyan('To position (e.g., 10 64 10): '));
           if (!isValidPosition(fillTo)) {
             console.log(
+              error,
               chalk.red('To position must be three coordinates (e.g., 10 64 10) or use ~ notation.')
             );
             fillTo = '';
@@ -380,7 +397,7 @@ export function createCommand(): Command {
             ? fillBlock.slice(10)
             : fillBlock;
           if (!fillBlock.trim()) {
-            console.log(chalk.red('Please enter a block ID.'));
+            console.log(error, chalk.red('Please enter a block ID.'));
             fillBlock = '';
             continue;
           }
@@ -388,7 +405,7 @@ export function createCommand(): Command {
             const suggestions = suggestSimilar(normalizedFill, fillBlocks).map(
               (s) => `minecraft:${s}`
             );
-            console.log(chalk.red(`Block ID "${fillBlock}" not found.`));
+            console.log(error, chalk.red(`Block ID "${fillBlock}" not found.`));
             if (suggestions.length) {
               console.log(chalk.yellow('Did you mean:'));
               suggestions.forEach((s) => console.log(`  - ${s}`));
@@ -406,7 +423,7 @@ export function createCommand(): Command {
         let message = '';
         do {
           message = await createQuestion(chalk.cyan('Message: '));
-          if (!message.trim()) console.log(chalk.red('Please enter a message.'));
+          if (!message.trim()) console.log(error, chalk.red('Please enter a message.'));
         } while (!message.trim());
         generatedCommand = `/say ${message}`;
         break;
@@ -418,15 +435,15 @@ export function createCommand(): Command {
           execTarget = await createQuestion(chalk.cyan('Target selector (e.g., @a): '));
           execCommand = await createQuestion(chalk.cyan('Command to execute: '));
           if (!execTarget.trim() || !execCommand.trim())
-            console.log(chalk.red('Please enter target and command.'));
+            console.log(error, chalk.red('Please enter target and command.'));
         } while (!execTarget.trim() || !execCommand.trim());
         generatedCommand = `/execute as ${execTarget} at @s run ${execCommand}`;
         break;
       }
 
       default: {
-        console.log(chalk.red(`✗ Unknown command type: ${commandType}`));
-        console.log(chalk.red(`✗ "${commandType}" is not yet supported. Sorry!`));
+        console.log(error, chalk.red(`Unknown command type: ${commandType}`));
+        console.log(warn, chalk.yellow(`"${commandType}" is not yet supported. Sorry!`));
         process.exit(1);
       }
     }
@@ -435,7 +452,9 @@ export function createCommand(): Command {
     await new Promise((r) => setTimeout(r, 600));
     spinner.stop();
 
-    console.log(`${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}`);
+    console.log(
+      `${success} ${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}`
+    );
 
     // Wait for Enter key
     const rl = createInterface({
@@ -444,12 +463,18 @@ export function createCommand(): Command {
     });
 
     if (options.copy === 'true') {
-      rl.question(chalk.cyan('Press Enter to copy to clipboard...'), async () => {
+      rl.question(`${info} chalk.cyan('Press Enter to copy to clipboard...'`, async () => {
         try {
           await clipboard.write(generatedCommand);
-          console.log(chalk.green('✓ Command copied to clipboard!'));
+          console.log(success, chalk.green('Command copied to clipboard!'));
+          if (!options.silent) {
+            sendNotify('Minecraft-Command-Gen-CLI', '✅️ The command was copied successfully.');
+          }
         } catch {
-          console.log(chalk.red('✗ Failed to copy command to clipboard'));
+          console.log(error, chalk.red('Failed to copy command to clipboard'));
+          if (!options.silent) {
+            sendNotify('Minecraft-Command-Gen-CLI', '❌️ Failed to copy command.');
+          }
         } finally {
           rl.close();
         }
@@ -457,12 +482,18 @@ export function createCommand(): Command {
     } else if (options.copy === 'false') {
       process.exit();
     } else {
-      rl.question(chalk.cyan('Press Enter to copy to clipboard...'), async () => {
+      rl.question(`${info} ${chalk.cyan('Press Enter to copy to clipboard...')}`, async () => {
         try {
           await clipboard.write(generatedCommand);
-          console.log(chalk.green('✓ Command copied to clipboard!'));
+          console.log(success, chalk.green('Command copied to clipboard!'));
+          if (!options.silent) {
+            sendNotify('Minecraft-Command-Gen-CLI', '✅️ The command was copied successfully.');
+          }
         } catch {
-          console.log(chalk.red('✗ Failed to copy command to clipboard'));
+          console.log(error, chalk.red('Failed to copy command to clipboard'));
+          if (!options.silent) {
+            sendNotify('Minecraft-Command-Gen-CLI', '❌️ Failed to copy command.');
+          }
         } finally {
           rl.close();
         }
