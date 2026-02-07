@@ -10,30 +10,7 @@ import { sendNotify } from '../features/notifier.js';
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
 
 import { info, success, warn, error } from '../util/emojis.js';
-
-// Type definitions for enquirer
-interface EnquirerChoice {
-  name: string;
-  value: string;
-  enabled?: boolean;
-}
-
-interface EnquirerBasePrompt {
-  index?: number;
-  cursor?: number;
-  choices: EnquirerChoice[];
-  run: () => Promise<string | string[]>;
-  render?: () => void;
-}
-
-type EnquirerModule = {
-  MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
-  AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
-  default?: {
-    MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
-    AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
-  };
-};
+import type { EnquirerChoice, EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
 
 export function createQuestion(query: string): Promise<string> {
   const rl = createInterface({
