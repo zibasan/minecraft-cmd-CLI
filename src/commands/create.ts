@@ -18,13 +18,22 @@ interface EnquirerChoice {
   enabled?: boolean;
 }
 
-interface EnquirerPrompt {
+interface EnquirerMultiSelectPrompt {
   index?: number;
   cursor?: number;
   choices: EnquirerChoice[];
   run: () => Promise<string | string[]>;
   render?: () => void;
 }
+
+type EnquirerModule = {
+  MultiSelect?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+  AutoComplete?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+  default?: {
+    MultiSelect?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+    AutoComplete?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+  };
+};
 
 export function createQuestion(query: string): Promise<string> {
   const rl = createInterface({
@@ -100,10 +109,7 @@ function isValidPosition(pos: string): boolean {
 
 export async function selectFromList(message: string, choices: string[]): Promise<string> {
   const promptChoices = choices.map((c) => ({ name: c, value: c }));
-  const enquirerModule = (await import('enquirer')) as {
-    MultiSelect?: new (options: Record<string, unknown>) => EnquirerPrompt;
-    default?: { MultiSelect?: new (options: Record<string, unknown>) => EnquirerPrompt };
-  };
+  const enquirerModule = (await import('enquirer')) as EnquirerModule;
   const MultiSelect = enquirerModule.MultiSelect || enquirerModule.default?.MultiSelect;
   if (!MultiSelect) {
     throw new Error('enquirer MultiSelect not available');
@@ -115,7 +121,7 @@ export async function selectFromList(message: string, choices: string[]): Promis
     choices: promptChoices.map((p) => ({ name: p.name, value: p.value })),
     // show all choices
     limit: promptChoices.length,
-  }) as EnquirerPrompt;
+  }) as EnquirerMultiSelectPrompt;
 
   const stdin = process.stdin;
   const onData = (chunk: Buffer | string) => {
@@ -320,10 +326,7 @@ export function createCommand(): Command {
           }
 
           // For block id, use enquirer AutoComplete for tab completion
-          const enquirerModule = (await import('enquirer')) as {
-            AutoComplete?: new (options: Record<string, unknown>) => EnquirerPrompt;
-            default?: { AutoComplete?: new (options: Record<string, unknown>) => EnquirerPrompt };
-          };
+          const enquirerModule = (await import('enquirer')) as EnquirerModule;
           const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
           if (AutoComplete && blocks.length > 0) {
             const ac = new AutoComplete({
@@ -331,7 +334,7 @@ export function createCommand(): Command {
               message: 'Block (e.g., diamond_block): ',
               choices: blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
               limit: 10,
-            }) as EnquirerPrompt;
+            }) as EnquirerMultiSelectPrompt;
             try {
               const val = await ac.run();
               sbBlock = String(val).trim(); // value is normalized (no prefix)
@@ -394,10 +397,7 @@ export function createCommand(): Command {
             continue;
           }
           if (fillBlocks.length > 0) {
-            const enquirerModule = (await import('enquirer')) as {
-              AutoComplete?: new (options: Record<string, unknown>) => EnquirerPrompt;
-              default?: { AutoComplete?: new (options: Record<string, unknown>) => EnquirerPrompt };
-            };
+            const enquirerModule = (await import('enquirer')) as EnquirerModule;
             const AutoComplete =
               enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
             if (AutoComplete) {
@@ -406,7 +406,7 @@ export function createCommand(): Command {
                 message: 'Block (e.g., stone):',
                 choices: fillBlocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
                 limit: 10,
-              }) as EnquirerPrompt;
+              }) as EnquirerMultiSelectPrompt;
               try {
                 const val = await ac.run();
                 fillBlock = String(val).trim();
