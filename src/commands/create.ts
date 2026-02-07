@@ -51,8 +51,12 @@ async function loadBlocksList(): Promise<string[]> {
 
 function levenshtein(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
-  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
-  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 0; i <= a.length; i++) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= b.length; j++) {
+    dp[0][j] = j;
+  }
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
@@ -83,7 +87,9 @@ export async function selectFromList(message: string, choices: string[]): Promis
   const promptChoices = choices.map((c) => ({ name: c, value: c }));
   const enquirerModule: any = await import('enquirer');
   const MultiSelect = enquirerModule.MultiSelect || enquirerModule.default?.MultiSelect;
-  if (!MultiSelect) throw new Error('enquirer MultiSelect not available');
+  if (!MultiSelect) {
+    throw new Error('enquirer MultiSelect not available');
+  }
 
   const prompt = new MultiSelect({
     name: 'selected',
@@ -126,7 +132,9 @@ export async function selectFromList(message: string, choices: string[]): Promis
     const result: any = await prompt.run();
     // MultiSelect returns an array — but we enforce single selection above
     if (Array.isArray(result)) {
-      if (result.length > 0) return result[0];
+      if (result.length > 0) {
+        return result[0];
+      }
       // If nothing was checked (user pressed Enter), use focused index
       const idx =
         typeof (prompt as any).index === 'number'
@@ -233,7 +241,9 @@ export function createCommand(): Command {
         let itemName = '';
         do {
           itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
-          if (!itemName.trim()) console.log(error, chalk.red('Please enter an item name.'));
+          if (!itemName.trim()) {
+            console.log(error, chalk.red('Please enter an item name.'));
+          }
         } while (!itemName.trim());
         console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
         console.log('\n');
