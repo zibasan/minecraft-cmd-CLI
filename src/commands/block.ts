@@ -4,7 +4,6 @@ import { createQuestion } from './create.js';
 import clipboard from 'clipboardy';
 import { writeFile } from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type { EnquirerModule, EnquirerBasePrompt } from '../types/enquirer.js';
 
 const DATA_TS = path.resolve('src/data/blocks.ts');
@@ -20,12 +19,12 @@ export function blockCommand(): Command {
       // load existing blocks from the compiled data module if present
       let list: string[] = [];
       try {
-        const mod = await import(fileURLToPath(new URL('../data/blocks.js', import.meta.url)));
+        const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
         list = (mod?.BLOCKS || mod?.default || []) as string[];
       } catch {
         // fallback: try importing .ts (when running with ts-node)
         try {
-          const mod = await import(fileURLToPath(new URL('../data/blocks.ts', import.meta.url)));
+          const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           list = [];
@@ -77,7 +76,7 @@ export function blockCommand(): Command {
     .description('List known block IDs')
     .action(async () => {
       try {
-        const mod = await import(fileURLToPath(new URL('../data/blocks.js', import.meta.url)));
+        const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
         const list = (mod?.BLOCKS || mod?.default || []) as string[];
         console.log(chalk.green(`Known block IDs (${list.length}):`));
         list.forEach((b) => console.log(` - minecraft:${b}`));
@@ -98,11 +97,11 @@ export function blockCommand(): Command {
         // import current list
         let list: string[] = [];
         try {
-          const mod = await import(fileURLToPath(new URL('../data/blocks.js', import.meta.url)));
+          const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           try {
-            const mod = await import(fileURLToPath(new URL('../data/blocks.ts', import.meta.url)));
+            const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
             list = (mod?.BLOCKS || mod?.default || []) as string[];
           } catch {
             list = [];
@@ -164,11 +163,11 @@ export function blockCommand(): Command {
       // load current list
       let list: string[] = [];
       try {
-        const mod = await import(fileURLToPath(new URL('../data/blocks.js', import.meta.url)));
+        const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
         list = (mod?.BLOCKS || mod?.default || []) as string[];
       } catch {
         try {
-          const mod = await import(fileURLToPath(new URL('../data/blocks.ts', import.meta.url)));
+          const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           list = [];
