@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import clipboard from 'clipboardy';
 import { createInterface } from 'readline';
 import ora from 'ora';
-import { fileURLToPath } from 'url';
+
 // path not required here
 
 import { sendNotify } from '../features/notifier.js';
@@ -29,13 +29,13 @@ export function createQuestion(query: string): Promise<string> {
 async function loadBlocksList(): Promise<string[]> {
   // Try to import the generated JS module (when running built dist)
   try {
-    const mod = await import(fileURLToPath(new URL('../data/blocks.js', import.meta.url)));
+    const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
     const list = (mod?.BLOCKS || mod?.default || []) as string[];
     return list;
   } catch {
     // Try to import TS directly (when running with ts-node)
     try {
-      const mod = await import(fileURLToPath(new URL('../data/blocks.ts', import.meta.url)));
+      const mod = await import(new URL('../data/blocks.ts', import.meta.url).href);
       const list = (mod?.BLOCKS || mod?.default || []) as string[];
       return list;
     } catch {

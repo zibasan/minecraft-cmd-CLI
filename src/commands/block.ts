@@ -5,6 +5,7 @@ import clipboard from 'clipboardy';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import type { EnquirerModule, EnquirerBasePrompt } from '../types/enquirer.js';
+import { info, success, error } from '../util/emojis.js';
 
 const DATA_TS = path.resolve('src/data/blocks.ts');
 
@@ -24,7 +25,7 @@ export function blockCommand(): Command {
       } catch {
         // fallback: try importing .ts (when running with ts-node)
         try {
-          const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
+          const mod = await import(new URL('../data/blocks.ts', import.meta.url).href);
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           list = [];
@@ -101,7 +102,7 @@ export function blockCommand(): Command {
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           try {
-            const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
+            const mod = await import(new URL('../data/blocks.ts', import.meta.url).href);
             list = (mod?.BLOCKS || mod?.default || []) as string[];
           } catch {
             list = [];
@@ -167,7 +168,7 @@ export function blockCommand(): Command {
         list = (mod?.BLOCKS || mod?.default || []) as string[];
       } catch {
         try {
-          const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
+          const mod = await import(new URL('../data/blocks.ts', import.meta.url).href);
           list = (mod?.BLOCKS || mod?.default || []) as string[];
         } catch {
           list = [];
@@ -458,12 +459,12 @@ export function blockCommand(): Command {
           if (yn.toLowerCase() === 'y') {
             try {
               await clipboard.write(`minecraft:${normalized}`);
-              console.log(chalk.green('✓ Copied to clipboard: '), `minecraft:${normalized}`);
+              console.log(success, chalk.green('Copied to clipboard: '), `minecraft:${normalized}`);
             } catch {
-              console.log(chalk.red('✗ Failed to copy to clipboard'));
+              console.log(error, chalk.red('Failed to copy to clipboard'));
             }
           } else {
-            console.log(chalk.blue('Skipped copying to clipboard.'));
+            console.log(info, chalk.blue('Skipped copying to clipboard.'));
           }
           return;
         }
