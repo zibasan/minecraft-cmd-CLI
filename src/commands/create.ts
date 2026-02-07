@@ -10,6 +10,7 @@ import { sendNotify } from '../features/notifier.js';
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
 
 import { info, success, warn, error } from '../util/emojis.js';
+import type { EnquirerChoice, EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
 
 export function createQuestion(query: string): Promise<string> {
   const rl = createInterface({
@@ -85,7 +86,7 @@ function isValidPosition(pos: string): boolean {
 
 export async function selectFromList(message: string, choices: string[]): Promise<string> {
   const promptChoices = choices.map((c) => ({ name: c, value: c }));
-  const enquirerModule: any = await import('enquirer');
+  const enquirerModule = (await import('enquirer')) as EnquirerModule;
   const MultiSelect = enquirerModule.MultiSelect || enquirerModule.default?.MultiSelect;
   if (!MultiSelect) {
     throw new Error('enquirer MultiSelect not available');
@@ -97,7 +98,7 @@ export async function selectFromList(message: string, choices: string[]): Promis
     choices: promptChoices.map((p) => ({ name: p.name, value: p.value })),
     // show all choices
     limit: promptChoices.length,
-  });
+  }) as EnquirerBasePrompt;
 
   const stdin = process.stdin;
   const onData = (chunk: Buffer | string) => {
@@ -106,16 +107,13 @@ export async function selectFromList(message: string, choices: string[]): Promis
       // When space pressed, enforce single selection: mark only the focused choice as enabled
       try {
         // try to read current index from prompt
-        const idx =
-          typeof (prompt as any).index === 'number'
-            ? (prompt as any).index
-            : ((prompt as any).cursor ?? 0);
-        prompt.choices.forEach((c: any, i: number) => {
+        const idx = typeof prompt.index === 'number' ? prompt.index : (prompt.cursor ?? 0);
+        prompt.choices.forEach((c: EnquirerChoice, i: number) => {
           c.enabled = i === idx;
         });
         try {
           // re-render to update visual checkboxes
-          (prompt as any).render();
+          prompt.render?.();
         } catch {
           void 0;
         }
@@ -126,26 +124,23 @@ export async function selectFromList(message: string, choices: string[]): Promis
   };
 
   stdin.resume();
-  stdin.on('data', onData as any);
+  stdin.on('data', onData);
 
   try {
-    const result: any = await prompt.run();
+    const result = await prompt.run();
     // MultiSelect returns an array — but we enforce single selection above
     if (Array.isArray(result)) {
       if (result.length > 0) {
         return result[0];
       }
       // If nothing was checked (user pressed Enter), use focused index
-      const idx =
-        typeof (prompt as any).index === 'number'
-          ? (prompt as any).index
-          : ((prompt as any).cursor ?? 0);
+      const idx = typeof prompt.index === 'number' ? prompt.index : (prompt.cursor ?? 0);
       const choice = prompt.choices[idx];
       return choice && choice.value ? choice.value : '';
     }
     return result;
   } finally {
-    stdin.removeListener('data', onData as any);
+    stdin.removeListener('data', onData);
     stdin.pause();
   }
 }
@@ -308,7 +303,7 @@ export function createCommand(): Command {
           }
 
           // For block id, use enquirer AutoComplete for tab completion
-          const enquirerModule: any = await import('enquirer');
+          const enquirerModule = (await import('enquirer')) as EnquirerModule;
           const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
           if (AutoComplete && blocks.length > 0) {
             const ac = new AutoComplete({
@@ -316,9 +311,9 @@ export function createCommand(): Command {
               message: 'Block (e.g., diamond_block): ',
               choices: blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
               limit: 10,
-            });
+            }) as EnquirerBasePrompt;
             try {
-              const val: any = await ac.run();
+              const val = await ac.run();
               sbBlock = String(val).trim(); // value is normalized (no prefix)
             } catch {
               // fallback to plain input
@@ -379,7 +374,7 @@ export function createCommand(): Command {
             continue;
           }
           if (fillBlocks.length > 0) {
-            const enquirerModule: any = await import('enquirer');
+            const enquirerModule = (await import('enquirer')) as EnquirerModule;
             const AutoComplete =
               enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
             if (AutoComplete) {
@@ -388,9 +383,9 @@ export function createCommand(): Command {
                 message: 'Block (e.g., stone):',
                 choices: fillBlocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
                 limit: 10,
-              });
+              }) as EnquirerBasePrompt;
               try {
-                const val: any = await ac.run();
+                const val = await ac.run();
                 fillBlock = String(val).trim();
               } catch {
                 fillBlock = await createQuestion(chalk.cyan('Block (e.g., stone): '));
