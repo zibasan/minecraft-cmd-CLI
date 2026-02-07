@@ -18,7 +18,7 @@ interface EnquirerChoice {
   enabled?: boolean;
 }
 
-interface EnquirerMultiSelectPrompt {
+interface EnquirerBasePrompt {
   index?: number;
   cursor?: number;
   choices: EnquirerChoice[];
@@ -27,11 +27,11 @@ interface EnquirerMultiSelectPrompt {
 }
 
 type EnquirerModule = {
-  MultiSelect?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
-  AutoComplete?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+  MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
+  AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
   default?: {
-    MultiSelect?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
-    AutoComplete?: new (options: Record<string, unknown>) => EnquirerMultiSelectPrompt;
+    MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
+    AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
   };
 };
 
@@ -121,7 +121,7 @@ export async function selectFromList(message: string, choices: string[]): Promis
     choices: promptChoices.map((p) => ({ name: p.name, value: p.value })),
     // show all choices
     limit: promptChoices.length,
-  }) as EnquirerMultiSelectPrompt;
+  }) as EnquirerBasePrompt;
 
   const stdin = process.stdin;
   const onData = (chunk: Buffer | string) => {
@@ -334,7 +334,7 @@ export function createCommand(): Command {
               message: 'Block (e.g., diamond_block): ',
               choices: blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
               limit: 10,
-            }) as EnquirerMultiSelectPrompt;
+            }) as EnquirerBasePrompt;
             try {
               const val = await ac.run();
               sbBlock = String(val).trim(); // value is normalized (no prefix)
@@ -406,7 +406,7 @@ export function createCommand(): Command {
                 message: 'Block (e.g., stone):',
                 choices: fillBlocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
                 limit: 10,
-              }) as EnquirerMultiSelectPrompt;
+              }) as EnquirerBasePrompt;
               try {
                 const val = await ac.run();
                 fillBlock = String(val).trim();
