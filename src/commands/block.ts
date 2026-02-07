@@ -5,6 +5,7 @@ import clipboard from 'clipboardy';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { EnquirerModule, EnquirerBasePrompt } from '../types/enquirer.js';
 
 const DATA_TS = path.resolve('src/data/blocks.ts');
 
@@ -114,7 +115,7 @@ export function blockCommand(): Command {
         }
 
         // use enquirer AutoComplete to pick
-        const enquirerModule: any = await import('enquirer');
+        const enquirerModule = (await import('enquirer')) as EnquirerModule;
         const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
         let pick = '';
         if (AutoComplete) {
@@ -123,7 +124,7 @@ export function blockCommand(): Command {
             message: 'Select block to remove:',
             limit: 10,
             choices: list.map((b) => ({ name: `minecraft:${b}`, value: b })),
-          });
+          }) as EnquirerBasePrompt;
           try {
             pick = String(await ac.run());
           } catch {
@@ -356,7 +357,7 @@ export function blockCommand(): Command {
 
       const categories = ['All', ...Object.keys(CATEGORY_KEYWORDS)];
 
-      const enquirerModule: any = await import('enquirer');
+      const enquirerModule = (await import('enquirer')) as EnquirerModule;
       const Select = enquirerModule.Select || enquirerModule.default?.Select;
       const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
 
@@ -368,7 +369,7 @@ export function blockCommand(): Command {
             name: 'category',
             message: 'Choose category to search:',
             choices: categories,
-          });
+          }) as EnquirerBasePrompt;
           try {
             chosenCat = String(await sel.run());
           } catch {
@@ -400,7 +401,7 @@ export function blockCommand(): Command {
             choices,
             limit: 20,
             loop: false,
-          });
+          }) as EnquirerBasePrompt;
           try {
             const pick = String(await ac.run());
             if (pick === '__BACK__') {

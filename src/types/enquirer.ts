@@ -20,8 +20,10 @@ export interface EnquirerBasePrompt {
 export type EnquirerModule = {
   MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
   AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
+  Select?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
   default?: {
     MultiSelect?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
     AutoComplete?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
+    Select?: new (options: Record<string, unknown>) => EnquirerBasePrompt;
   };
 };
