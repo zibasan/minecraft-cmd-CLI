@@ -8,6 +8,7 @@ import ora from 'ora';
 
 import { sendNotify } from '../features/notifier.js';
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
+import { addItemComponentsQuestion } from './item-components/item-component.js';
 
 import { info, success, warn, error } from '../util/emojis.js';
 import type { EnquirerChoice, EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
@@ -243,6 +244,28 @@ export function createCommand(): Command {
         console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
         console.log('\n');
 
+        // Q3.5: Ask to add additional component
+        const addComponentSelector = await createQuestion(
+          chalk.cyan('Add item component(s)? (y/N): ')
+        );
+        const shouldAdd = addComponentSelector.toLowerCase() === 'y';
+        let addComponents: string = '';
+        if (shouldAdd) {
+          addComponents = await addItemComponentsQuestion();
+        } else {
+          console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('No')}`)}`);
+        }
+
+        const addedComponentsTF: boolean = addComponents ? true : false;
+
+        let item: string;
+
+        if (addedComponentsTF) {
+          item = `${itemName}[${addComponents}]`;
+        } else {
+          item = `${itemName}`;
+        }
+
         // Q4: Amount
         let amount = '';
         do {
@@ -261,7 +284,7 @@ export function createCommand(): Command {
         console.log(chalk.blue(`Item amount:`), `${chalk.green(`${chalk.bold(amount)}`)}`);
         console.log('\n');
 
-        generatedCommand = `/give ${selector} ${itemName} ${amount}`;
+        generatedCommand = `/give ${selector} ${item} ${amount}`;
         break;
       }
       case 'teleport': {
