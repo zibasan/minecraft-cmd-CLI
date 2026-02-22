@@ -27,7 +27,7 @@ export function createQuestion(query: string): Promise<string> {
   });
 }
 
-async function loadBlocksList(): Promise<string[]> {
+export async function loadBlocksList(): Promise<string[]> {
   // Try to import the generated JS module (when running built dist)
   try {
     const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
@@ -68,6 +68,30 @@ export async function loadEnchantmentsList(): Promise<string[]> {
       console.warn(
         chalk.yellow(
           'Warning: enchantments.ts/enchantments.js file not found. Enchantments autocomplete and validation will be disabled.'
+        )
+      );
+      return [];
+    }
+  }
+}
+
+export async function loadSoundsList(): Promise<string[]> {
+  // Try to import the generated JS module (when running built dist)
+  try {
+    const mod = await import(new URL('../data/sounds.js', import.meta.url).href);
+    const list = (mod?.SOUNDS || mod?.default || []) as string[];
+    return list;
+  } catch {
+    // Try to import TS directly (when running with ts-node)
+    try {
+      const mod = await import(new URL('../data/sounds.ts', import.meta.url).href);
+      const list = (mod?.SOUNDS || mod?.default || []) as string[];
+      return list;
+    } catch {
+      // If sounds file is not available, log a warning and return empty array
+      console.warn(
+        chalk.yellow(
+          'Warning: sounds.ts/sounds.js file not found. Sounds autocomplete and validation will be disabled.'
         )
       );
       return [];

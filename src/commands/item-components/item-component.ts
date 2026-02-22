@@ -1,5 +1,11 @@
 import chalk from 'chalk';
-import { createQuestion, loadEnchantmentsList, selectFromList } from '../create.js';
+import {
+  createQuestion,
+  loadBlocksList,
+  loadEnchantmentsList,
+  loadSoundsList,
+  selectFromList,
+} from '../create.js';
 import { warn, error } from '../../util/emojis.js';
 import { EnquirerModule, EnquirerBasePrompt } from '../../types/enquirer.js';
 import { suggestSimilar } from '../create.js';
@@ -16,7 +22,10 @@ export async function addItemComponentsQuestion(): Promise<string> {
     'enchantment_glint_override',
     'enchantments',
     'food',
+    'break_sound',
     'max_damage',
+    'can_break',
+    'can_place_on',
     'max_stack_size',
     'rarity',
   ];
@@ -39,8 +48,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
           enchantment_glint_override: 'Whether show glint of enchantment(no enchantments)',
           enchantments: 'Item Enchantments',
           food: 'Setting edible items',
+          break_sound: 'The sound played when the item is broken',
           max_damage: 'The maximum durability value of that item',
           max_stack_size: 'The maximum stack size value of that item',
+          can_break: 'Specify breakable blocks in adventure mode',
+          can_place_on: 'Specify the blocks on witch this can be placed in adventure mode',
           rarity: 'Item Rarity',
         };
         return `${s} - ${descriptions[s] || s}`;
@@ -230,7 +242,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
 
               if (AutoComplete && enchantments.length > 0) {
                 const ac = new AutoComplete({
-                  name: 'block',
+                  name: 'enchantments',
                   message: 'Enchantments (e.g., sharpness, unbreaking, ...): ',
                   choices: enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
                   limit: 10,
@@ -348,7 +360,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
         );
 
         if (comp_food.toLowerCase() === 'back') {
-          console.log(warn, chalk.yellow(' Cancelled. Back to selector selection.'));
+          console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
           console.log('\n');
           break;
         }
@@ -361,6 +373,90 @@ export async function addItemComponentsQuestion(): Promise<string> {
         addedComponents.push(`food={${foodPrettied}}`);
         break;
       }
+
+      case 'break_sound': {
+        const sounds = await loadSoundsList();
+        let sound_name = '';
+        let final_soundName = '';
+
+        // 有効なサウンドが入力されるまで繰り返す（バリデーションループ）
+        while (true) {
+          const enquirerModule = (await import('enquirer')) as EnquirerModule;
+          const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+          if (AutoComplete && sounds.length > 0) {
+            const ac = new AutoComplete({
+              name: 'sounds',
+              message: 'Select break sound (e.g., block.snow.break): ',
+              choices: sounds.map((s) => ({ name: `${s}`, value: s })),
+              limit: 10,
+            }) as EnquirerBasePrompt;
+            try {
+              const val = await ac.run();
+              sound_name = String(val).trim();
+            } catch {
+              // フォールバック: 通常のテキスト入力
+              sound_name = await createQuestion(
+                chalk.cyan('Sounds (e.g., minecraft:block.snow.break, ...): ')
+              );
+            }
+          } else {
+            sound_name = await createQuestion(
+              chalk.cyan('Sounds (e.g., minecraft:block.snow.break, ...): ')
+            );
+          }
+
+          if (sound_name.toLowerCase() === 'minecraft_cli:back') {
+            console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+            console.log('\n');
+            break;
+          }
+
+          // 入力値の正規化と存在チェック
+          // 1. 入力された値にプレフィックスがなければ付与する（正規化）
+          const fullName = sound_name.startsWith('minecraft:')
+            ? sound_name
+            : `minecraft:${sound_name}`;
+
+          // 2. sounds.ts の内容とそのまま比較する
+          const exists = sounds.includes(fullName);
+
+          if (!sound_name.trim()) {
+            console.log(error, chalk.red('Please enter sound name.'));
+            continue;
+          }
+
+          if (!exists) {
+            // 3. 類似検索の結果をそのまま使う（sounds内には既にminecraft:が含まれているため）
+            const suggestions = suggestSimilar(fullName, sounds);
+
+            console.log(chalk.red(`Sound "${fullName}" not found.`));
+            if (suggestions.length > 0) {
+              console.log(chalk.yellow('Did you mean:'));
+              suggestions.forEach((s) => console.log(`  - ${s}`)); // ここで再付与しない
+            }
+            console.log(
+              error,
+              chalk.cyan('Please enter a valid sound name (try Tab to autocomplete).')
+            );
+            sound_name = '';
+            continue;
+          }
+
+          // 確定した名前を格納
+          final_soundName = fullName;
+
+          // 有効なサウンドが確定
+          break;
+        }
+
+        // コンポーネントに追加（単一の値を代入）
+        console.log(chalk.blue(`break_sound: `), `${chalk.green.bold(final_soundName)}`);
+        addedComponents.push(`break_sound="${final_soundName}"`);
+
+        break;
+      }
+
       case 'max_damage': {
         while (true) {
           const comp_max_damage = await createQuestion(
@@ -425,11 +521,266 @@ export async function addItemComponentsQuestion(): Promise<string> {
             `${chalk.green.bold(maxStackSizeNum.toString())}`
           );
           console.log('\n');
-          addedComponents.push(`max_damage=${maxStackSizeNum.toString()}`);
+          addedComponents.push(`max_stack_size=${maxStackSizeNum.toString()}`);
           break;
         }
         break;
       }
+
+      case 'can_break': {
+        const comp_blocksList: string[] = [];
+        let addMoreBlocks = true;
+        let backed = false;
+        const blocks = await loadBlocksList();
+
+        while (addMoreBlocks) {
+          let current_name = ''; // このターンで入力する名前をリセット
+
+          // --- 1. 有効なブロック名が決まるまで回るループ ---
+          while (true) {
+            const enquirerModule = (await import('enquirer')) as EnquirerModule;
+            const AutoComplete =
+              enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+            let input = '';
+            if (AutoComplete && blocks.length > 0) {
+              const ac = new AutoComplete({
+                name: 'blocks',
+                message: `can_break (Current: ${comp_blocksList.length}) - Select a block(Choose "mc_cmd_gen_cli:back" to go back)... : `,
+                // choicesのnameは表示用、valueは実際のID
+                choices: [
+                  ...blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
+                  { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
+                ],
+                limit: 10,
+              }) as EnquirerBasePrompt;
+
+              try {
+                const val = await ac.run();
+                input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
+              } catch {
+                input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
+              }
+            } else {
+              input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
+            }
+
+            input = input.trim();
+            if (input === '__BACK__') {
+              backed = true;
+              break; // 内側の入力ループを抜ける
+            }
+            if (!input) {
+              console.log(error, chalk.red('Please enter block name.'));
+              continue;
+            }
+
+            // プレフィックスの正規化（minecraft:を抜いた純粋なIDにする）
+            const normalized = input.startsWith('minecraft:') ? input.slice(10) : input;
+            const fullName = `minecraft:${normalized}`;
+
+            // 重複チェック
+            if (comp_blocksList.includes(fullName)) {
+              console.log(
+                chalk.bgRed.white(' DUPLICATE '),
+                chalk.red(`"${fullName}" is already added.\n\n`)
+              );
+              continue; // 入力待ち（このwhileループの先頭）に戻る
+            }
+
+            // 存在チェック
+            if (!blocks.includes(normalized)) {
+              const suggestions = suggestSimilar(normalized, blocks)
+                .filter((s) => s !== '__BACK__')
+                .map((b) => `minecraft:${b}`);
+
+              console.log(chalk.red(`Block "${fullName}" not found.`));
+              if (suggestions.length > 0) {
+                console.log(chalk.yellow('Did you mean:'));
+                suggestions.forEach((s) => console.log(`  - ${s}`));
+              }
+              continue; // 入力待ちに戻る
+            }
+
+            // 全てのチェックを通過
+            current_name = fullName;
+            break; // 「有効な名前が決まるまで回るループ」を抜ける
+          }
+
+          if (backed && comp_blocksList.length === 0) {
+            addMoreBlocks = false;
+            console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+            break;
+          }
+
+          if (backed && comp_blocksList.length > 0) {
+            addMoreBlocks = false;
+            console.log(warn, chalk.yellow(' Cancelled. Finish adding blocks to "can_break".'));
+            break;
+          }
+
+          // リストに追加
+          comp_blocksList.push(current_name);
+          console.log(chalk.blue(`Added Block: `), `${chalk.green.bold(current_name)}`);
+
+          // --- 2. 他のブロックを追加するかどうか選択 ---
+          const addMoreOptions = ['y - Add another block', 'N - Finish'];
+          const addMoreResult = await selectFromList(
+            chalk.cyan('Add another block to "can_break"?(y/N)'),
+            addMoreOptions
+          );
+          console.log('\n');
+
+          if (addMoreResult.split(' ')[0].toLowerCase() === 'n') {
+            addMoreBlocks = false;
+          }
+        }
+
+        // 最終的なコンポーネントの書き出し
+        if (comp_blocksList.length > 0) {
+          const blocksArray = comp_blocksList.map((b) => `"${b}"`).join(', ');
+          addedComponents.push(`can_break={blocks:[${blocksArray}]}`);
+          console.log(
+            chalk.blue(`All blocks added to "can_break": `),
+            chalk.green.bold(`[${blocksArray}]`)
+          );
+          console.log('\n');
+        }
+
+        if (comp_blocksList.length === 0) {
+          break; // can_breakコンポーネントは追加せず、空文字を返す
+        }
+
+        break;
+      }
+
+      case 'can_place_on': {
+        const comp_blocksList: string[] = [];
+        let addMoreBlocks = true;
+        let backed = false;
+        const blocks = await loadBlocksList();
+
+        while (addMoreBlocks) {
+          let current_name = ''; // このターンで入力する名前をリセット
+
+          // --- 1. 有効なブロック名が決まるまで回るループ ---
+          while (true) {
+            const enquirerModule = (await import('enquirer')) as EnquirerModule;
+            const AutoComplete =
+              enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+            let input = '';
+            if (AutoComplete && blocks.length > 0) {
+              const ac = new AutoComplete({
+                name: 'blocks',
+                message: `can_place_on (Current: ${comp_blocksList.length}) - Select a block(Choose "mc_cmd_gen_cli:back" to go back)... : `,
+                // choicesのnameは表示用、valueは実際のID
+                choices: [
+                  ...blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
+                  { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
+                ],
+                limit: 10,
+              }) as EnquirerBasePrompt;
+
+              try {
+                const val = await ac.run();
+                input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
+              } catch {
+                input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
+              }
+            } else {
+              input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
+            }
+
+            input = input.trim();
+            if (input === '__BACK__') {
+              backed = true;
+              break; // 内側の入力ループを抜ける
+            }
+            if (!input) {
+              console.log(error, chalk.red('Please enter block name.'));
+              continue;
+            }
+
+            // プレフィックスの正規化（minecraft:を抜いた純粋なIDにする）
+            const normalized = input.startsWith('minecraft:') ? input.slice(10) : input;
+            const fullName = `minecraft:${normalized}`;
+
+            // 重複チェック
+            if (comp_blocksList.includes(fullName)) {
+              console.log(
+                chalk.bgRed.white(' DUPLICATE '),
+                chalk.red(`"${fullName}" is already added.\n\n`)
+              );
+              continue; // 入力待ち（このwhileループの先頭）に戻る
+            }
+
+            // 存在チェック
+            if (!blocks.includes(normalized)) {
+              const suggestions = suggestSimilar(normalized, blocks)
+                .filter((s) => s !== '__BACK__')
+                .map((b) => `minecraft:${b}`);
+
+              console.log(chalk.red(`Block "${fullName}" not found.`));
+              if (suggestions.length > 0) {
+                console.log(chalk.yellow('Did you mean:'));
+                suggestions.forEach((s) => console.log(`  - ${s}`));
+              }
+              continue; // 入力待ちに戻る
+            }
+
+            // 全てのチェックを通過
+            current_name = fullName;
+            break; // 「有効な名前が決まるまで回るループ」を抜ける
+          }
+
+          if (backed && comp_blocksList.length === 0) {
+            addMoreBlocks = false;
+            console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+            break;
+          }
+
+          if (backed && comp_blocksList.length > 0) {
+            addMoreBlocks = false;
+            console.log(warn, chalk.yellow(' Cancelled. Finish adding blocks to "can_place_on".'));
+            break;
+          }
+
+          // リストに追加
+          comp_blocksList.push(current_name);
+          console.log(chalk.blue(`Added Block: `), `${chalk.green.bold(current_name)}`);
+
+          // --- 2. 他のブロックを追加するかどうか選択 ---
+          const addMoreOptions = ['y - Add another block', 'N - Finish'];
+          const addMoreResult = await selectFromList(
+            chalk.cyan('Add another block to "can_place_on"?(y/N)'),
+            addMoreOptions
+          );
+          console.log('\n');
+
+          if (addMoreResult.split(' ')[0].toLowerCase() === 'n') {
+            addMoreBlocks = false;
+          }
+        }
+
+        // 最終的なコンポーネントの書き出し
+        if (comp_blocksList.length > 0) {
+          const blocksArray = comp_blocksList.map((b) => `"${b}"`).join(', ');
+          addedComponents.push(`can_place_on={blocks:[${blocksArray}]}`);
+          console.log(
+            chalk.blue(`All blocks added to "can_place_on": `),
+            chalk.green.bold(`[${blocksArray}]`)
+          );
+          console.log('\n');
+        }
+
+        if (comp_blocksList.length === 0) {
+          break; // can_place_onコンポーネントは追加せず、空文字を返す
+        }
+
+        break;
+      }
+
       case 'rarity': {
         const rarityList = [
           `common - Normal: ${chalk.white('white')}, Enchanted: ${chalk.hex('#55FFFF')('aqua')}`,
