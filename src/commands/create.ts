@@ -8,6 +8,7 @@ import ora from 'ora';
 
 import { sendNotify } from '../features/notifier.js';
 import { addtionalSelectorsQuestion } from './selectors/selectors.js';
+import { addItemComponentsQuestion } from './item-components/item-component.js';
 
 import { info, success, warn, error } from '../util/emojis.js';
 import type { EnquirerChoice, EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
@@ -26,7 +27,7 @@ export function createQuestion(query: string): Promise<string> {
   });
 }
 
-async function loadBlocksList(): Promise<string[]> {
+export async function loadBlocksList(): Promise<string[]> {
   // Try to import the generated JS module (when running built dist)
   try {
     const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
@@ -43,6 +44,54 @@ async function loadBlocksList(): Promise<string[]> {
       console.warn(
         chalk.yellow(
           'Warning: blocks.ts/blocks.js file not found. Block autocomplete and validation will be disabled.'
+        )
+      );
+      return [];
+    }
+  }
+}
+
+export async function loadEnchantmentsList(): Promise<string[]> {
+  // Try to import the generated JS module (when running built dist)
+  try {
+    const mod = await import(new URL('../data/enchantments.js', import.meta.url).href);
+    const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
+    return list;
+  } catch {
+    // Try to import TS directly (when running with ts-node)
+    try {
+      const mod = await import(new URL('../data/enchantments.ts', import.meta.url).href);
+      const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
+      return list;
+    } catch {
+      // If blocks file is not available, log a warning and return empty array
+      console.warn(
+        chalk.yellow(
+          'Warning: enchantments.ts/enchantments.js file not found. Enchantments autocomplete and validation will be disabled.'
+        )
+      );
+      return [];
+    }
+  }
+}
+
+export async function loadSoundsList(): Promise<string[]> {
+  // Try to import the generated JS module (when running built dist)
+  try {
+    const mod = await import(new URL('../data/sounds.js', import.meta.url).href);
+    const list = (mod?.SOUNDS || mod?.default || []) as string[];
+    return list;
+  } catch {
+    // Try to import TS directly (when running with ts-node)
+    try {
+      const mod = await import(new URL('../data/sounds.ts', import.meta.url).href);
+      const list = (mod?.SOUNDS || mod?.default || []) as string[];
+      return list;
+    } catch {
+      // If sounds file is not available, log a warning and return empty array
+      console.warn(
+        chalk.yellow(
+          'Warning: sounds.ts/sounds.js file not found. Sounds autocomplete and validation will be disabled.'
         )
       );
       return [];
@@ -67,7 +116,7 @@ function levenshtein(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-function suggestSimilar(input: string, pool: string[], max = 5): string[] {
+export function suggestSimilar(input: string, pool: string[], max = 5): string[] {
   const scores = pool.map((p) => ({ p, d: levenshtein(input, p) }));
   scores.sort((a, b) => a.d - b.d);
   return scores.slice(0, max).map((s) => s.p);
@@ -148,8 +197,9 @@ export async function selectFromList(message: string, choices: string[]): Promis
 export function createCommand(): Command {
   const cmd = new Command('create');
   cmd.description('Generate Minecraft commands');
-  cmd.option('-c, --copy [boolean]', 'Whether copy command to clipboard', true);
-  cmd.option('-s, --silent', 'Whether nofity when the command copied');
+  cmd.option('-c, --copy [boolean]', 'Whether to copy command to clipboard', true);
+  cmd.option('-s, --silent', 'Whether to nofity when the command copied');
+  cmd.option('--no-slash', 'Remove the leading slash("/") It is useful when using Command Block.');
 
   cmd.action(async (options) => {
     switch (options.copy) {
@@ -176,6 +226,12 @@ export function createCommand(): Command {
     if (options.silent) {
       console.log(
         `${chalk.bgYellow.black(' WARN ')} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
+      );
+    }
+
+    if (options.slash === false) {
+      console.log(
+        `${chalk.bgBlue.black(' INFO ')} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`
       );
     }
 
@@ -243,6 +299,28 @@ export function createCommand(): Command {
         console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
         console.log('\n');
 
+        // Q3.5: Ask to add additional component
+        const addComponentSelector = await createQuestion(
+          chalk.cyan('Add item component(s)? (y/N): ')
+        );
+        const shouldAdd = addComponentSelector.toLowerCase() === 'y';
+        let addComponents: string = '';
+        if (shouldAdd) {
+          addComponents = await addItemComponentsQuestion();
+        } else {
+          console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('No')}`)}`);
+        }
+
+        const addedComponentsTF: boolean = addComponents ? true : false;
+
+        let item: string;
+
+        if (addedComponentsTF) {
+          item = `${itemName}[${addComponents}]`;
+        } else {
+          item = `${itemName}`;
+        }
+
         // Q4: Amount
         let amount = '';
         do {
@@ -261,7 +339,7 @@ export function createCommand(): Command {
         console.log(chalk.blue(`Item amount:`), `${chalk.green(`${chalk.bold(amount)}`)}`);
         console.log('\n');
 
-        generatedCommand = `/give ${selector} ${itemName} ${amount}`;
+        generatedCommand = `/give ${selector} ${item} ${amount}`;
         break;
       }
       case 'teleport': {
@@ -451,6 +529,10 @@ export function createCommand(): Command {
         console.log(warn, chalk.yellow(`"${commandType}" is not yet supported. Sorry!`));
         process.exit(1);
       }
+    }
+
+    if (options.slash === false && generatedCommand.startsWith('/')) {
+      generatedCommand = generatedCommand.slice(1);
     }
 
     const spinner = ora({ text: 'Generating commands...', discardStdin: false }).start();
