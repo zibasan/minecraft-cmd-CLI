@@ -51,6 +51,30 @@ async function loadBlocksList(): Promise<string[]> {
   }
 }
 
+export async function loadEnchantmentsList(): Promise<string[]> {
+  // Try to import the generated JS module (when running built dist)
+  try {
+    const mod = await import(new URL('../data/enchantments.js', import.meta.url).href);
+    const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
+    return list;
+  } catch {
+    // Try to import TS directly (when running with ts-node)
+    try {
+      const mod = await import(new URL('../data/enchantments.ts', import.meta.url).href);
+      const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
+      return list;
+    } catch {
+      // If blocks file is not available, log a warning and return empty array
+      console.warn(
+        chalk.yellow(
+          'Warning: enchantments.ts/enchantments.js file not found. Enchantments autocomplete and validation will be disabled.'
+        )
+      );
+      return [];
+    }
+  }
+}
+
 function levenshtein(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
   for (let i = 0; i <= a.length; i++) {
@@ -68,7 +92,7 @@ function levenshtein(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-function suggestSimilar(input: string, pool: string[], max = 5): string[] {
+export function suggestSimilar(input: string, pool: string[], max = 5): string[] {
   const scores = pool.map((p) => ({ p, d: levenshtein(input, p) }));
   scores.sort((a, b) => a.d - b.d);
   return scores.slice(0, max).map((s) => s.p);
@@ -149,8 +173,9 @@ export async function selectFromList(message: string, choices: string[]): Promis
 export function createCommand(): Command {
   const cmd = new Command('create');
   cmd.description('Generate Minecraft commands');
-  cmd.option('-c, --copy [boolean]', 'Whether copy command to clipboard', true);
-  cmd.option('-s, --silent', 'Whether nofity when the command copied');
+  cmd.option('-c, --copy [boolean]', 'Whether to copy command to clipboard', true);
+  cmd.option('-s, --silent', 'Whether to nofity when the command copied');
+  cmd.option('--no-slash', 'Remove the leading slash("/") It is useful when using Command Block.');
 
   cmd.action(async (options) => {
     switch (options.copy) {
@@ -177,6 +202,12 @@ export function createCommand(): Command {
     if (options.silent) {
       console.log(
         `${chalk.bgYellow.black(' WARN ')} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
+      );
+    }
+
+    if (options.slash === false) {
+      console.log(
+        `${chalk.bgBlue.black(' INFO ')} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`
       );
     }
 
@@ -474,6 +505,10 @@ export function createCommand(): Command {
         console.log(warn, chalk.yellow(`"${commandType}" is not yet supported. Sorry!`));
         process.exit(1);
       }
+    }
+
+    if (options.slash === false && generatedCommand.startsWith('/')) {
+      generatedCommand = generatedCommand.slice(1);
     }
 
     const spinner = ora({ text: 'Generating commands...', discardStdin: false }).start();

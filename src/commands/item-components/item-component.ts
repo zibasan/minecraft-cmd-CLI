@@ -1,6 +1,8 @@
 import chalk from 'chalk';
-import { createQuestion, selectFromList } from '../create.js';
+import { createQuestion, loadEnchantmentsList, selectFromList } from '../create.js';
 import { warn, error } from '../../util/emojis.js';
+import { EnquirerModule, EnquirerBasePrompt } from '../../types/enquirer.js';
+import { suggestSimilar } from '../create.js';
 
 export async function addItemComponentsQuestion(): Promise<string> {
   console.log(`${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
@@ -214,28 +216,72 @@ export async function addItemComponentsQuestion(): Promise<string> {
         const comp_enchantmentsList: string[] = [];
         let addMoreEnchantments = true;
 
+        const enchantments = await loadEnchantmentsList();
+        let enchantments_name = '';
+
         while (addMoreEnchantments) {
           // 1. エンチャント名を入力
           while (true) {
-            const enchantmentName = await createQuestion(
-              chalk.cyan('Enchantment name(e.g., sharpness, unbreaking). Type "back" to go back: ')
-            );
-            if (enchantmentName.trim().toLowerCase() === 'back') {
-              console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
-              console.log('\n');
-              addMoreEnchantments = false;
-              break;
-            }
-            if (!enchantmentName.trim()) {
-              console.log(error, chalk.red(' Please enter an enchantment name.'));
-              continue;
-            }
+            do {
+              // For block id, use enquirer AutoComplete for tab completion
+              const enquirerModule = (await import('enquirer')) as EnquirerModule;
+              const AutoComplete =
+                enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+              if (AutoComplete && enchantments.length > 0) {
+                const ac = new AutoComplete({
+                  name: 'block',
+                  message: 'Enchantments (e.g., sharpness, unbreaking, ...): ',
+                  choices: enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
+                  limit: 10,
+                }) as EnquirerBasePrompt;
+                try {
+                  const val = await ac.run();
+                  enchantments_name = String(val).trim(); // value is normalized (no prefix)
+                } catch {
+                  // fallback to plain input
+                  enchantments_name = await createQuestion(
+                    chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
+                  );
+                }
+              } else {
+                enchantments_name = await createQuestion(
+                  chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
+                );
+              }
+
+              // Normalize block id: allow with or without minecraft: prefix
+              const normalized = enchantments_name.startsWith('minecraft:')
+                ? enchantments_name.slice(10)
+                : enchantments_name;
+              const exists = enchantments.includes(normalized);
+              if (!enchantments_name.trim()) {
+                console.log(error, chalk.red('Please enter enchantments name.'));
+                continue;
+              }
+              if (!exists) {
+                const suggestions = suggestSimilar(normalized, enchantments).map(
+                  (s) => `minecraft:${s}`
+                );
+                console.log(chalk.red(`Enchantments "${enchantments_name}" not found.`));
+                if (suggestions.length > 0) {
+                  console.log(chalk.yellow('Did you mean:'));
+                  suggestions.forEach((s) => console.log(`  - ${s}`));
+                }
+                console.log(
+                  error,
+                  chalk.cyan('Please enter a valid enchantments name (try Tab to autocomplete).')
+                );
+                enchantments_name = '';
+                continue;
+              }
+            } while (!enchantments_name.trim());
 
             // 2. エンチャントレベルを入力（1~255）
             let validLevel = false;
             while (!validLevel) {
               const enchantmentLevel = await createQuestion(
-                chalk.cyan('Enchantment level(1~255): ')
+                chalk.cyan(`Enchantment(${enchantments_name}) level(1~255): `)
               );
               if (!enchantmentLevel.trim()) {
                 console.log(error, chalk.red(' Please enter an enchantment level.'));
@@ -243,15 +289,15 @@ export async function addItemComponentsQuestion(): Promise<string> {
               }
               const levelNum = parseInt(enchantmentLevel.trim(), 10);
               if (isNaN(levelNum) || levelNum < 1 || levelNum > 255) {
-                console.log(error, chalk.red(' Please enter a valid level(1~255).'));
+                console.log(error, chalk.red(' Please enter a valid enchantment level(1~255).'));
                 continue;
               }
 
               // エンチャントを追加
-              comp_enchantmentsList.push(`${enchantmentName}:${levelNum}`);
+              comp_enchantmentsList.push(`${enchantments_name}:${levelNum}`);
               console.log(
                 chalk.blue(`Enchantment: `),
-                `${chalk.green.bold(`${enchantmentName}:${levelNum}`)}`
+                `${chalk.green.bold(`${enchantments_name}:${levelNum}`)}`
               );
               console.log('\n');
 
