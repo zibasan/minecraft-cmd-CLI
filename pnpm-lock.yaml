@@ -26,6 +26,9 @@ importers:
       enquirer:
         specifier: ^2.3.6
         version: 2.4.1
+      figures:
+        specifier: ^6.1.0
+        version: 6.1.0
       inquirer:
         specifier: ^13.2.1
         version: 13.2.1(@types/node@25.0.10)

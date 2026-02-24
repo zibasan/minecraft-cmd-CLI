@@ -51,6 +51,7 @@
     "clipboardy": "^5.1.0",
     "commander": "^14.0.2",
     "enquirer": "^2.3.6",
+    "figures": "^6.1.0",
     "inquirer": "^13.2.1",
     "log-symbols": "^7.0.1",
     "minecraft-data": "^3.103.0",
