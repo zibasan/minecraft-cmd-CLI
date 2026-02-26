@@ -1,33 +1,38 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import clipboard from 'clipboardy';
-// import { createInterface } from 'readline';
 import ora from 'ora';
 import Enquirer from 'enquirer';
+import { sendNotify } from '../features/notifier.js';
+import { addSelectorsQuestion } from './selectors/selectors.js';
+import { addItemComponentsQuestion } from './item-components/item-component.js';
+import { info, success, warn, error } from '../util/symbols.js';
+import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
+import { createQuestion, selectFromList, toggleQuestion } from '../util/questionsFunc.js';
+import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
 // import figureSet from 'figures';
 
-// path not required here
-
-class CancelError extends Error {
-  constructor() {
-    super('CANCEL');
-    this.name = 'CancelError';
-  }
-}
+const { Input } = Enquirer as unknown as EnquirerModule;
 
 // 共通のエラーハンドリング関数
-async function runPromptWithCancel(prompt: EnquirerBasePrompt, allowCancel: boolean) {
+export async function runPromptWithCancel<T>(
+  prompt: EnquirerBasePrompt,
+  allowCancel: boolean
+): Promise<T | 'back'> {
   try {
-    return await prompt.run();
+    const result = await prompt.run();
+    return result as T;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
     // 自分で投げたキャンセルエラーの場合
-    if (e.message === 'CANCEL') {
+    if (e === '' || e.code === 'ERR_USE_AFTER_CLOSE' || e.message === 'CANCEL') {
       if (allowCancel) {
         // コンポーネント選択に戻す機能用（今はまだ使いませんが、準備しておきます）
         // 'back' という文字列が入力されたかのように振る舞う
         return 'back';
       } else {
+        // カーソルを再表示してから終了する (重要)
+        process.stdout.write('\x1B[?25h');
         // メインの処理でのキャンセルの場合は終了
         console.log(
           chalk.bgYellow.black(' CANCELED '),
@@ -37,249 +42,6 @@ async function runPromptWithCancel(prompt: EnquirerBasePrompt, allowCancel: bool
       }
     }
     throw e; // それ以外の予期せぬエラーはそのまま投げる
-  }
-}
-import { sendNotify } from '../features/notifier.js';
-import { addSelectorsQuestion } from './selectors/selectors.js';
-import { addItemComponentsQuestion } from './item-components/item-component.js';
-import { info, success, warn, error } from '../util/emojis.js';
-import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
-
-export async function createQuestion(query: string, allowCancel: boolean = false): Promise<string> {
-  const enquirerModule = Enquirer as EnquirerModule;
-  // Enquirer の Input プロンプトを使用
-  const Input = enquirerModule.Input || enquirerModule.default?.Input;
-
-  if (!Input) {
-    throw new Error('enquirer Input not available');
-  }
-
-  const prompt = new Input({
-    message: chalk.cyan(query),
-    onCancel: () => {
-      throw new CancelError();
-    },
-  }) as EnquirerBasePrompt;
-
-  return (await runPromptWithCancel(prompt, allowCancel)) as string;
-}
-
-/**
- *
- * @param fileName ロードさせたいファイル名 e.g., blocks, sounds etc.
- * @param constantName そのファイルでexportしている変数名 e.g., BLOCKS, SOUNDS etc.
- * @returns ロードしたいデータのリスト
- */
-
-export async function loadDataLists(fileName: string, constantName: string): Promise<string[]> {
-  const fileExtensions = ['js', 'ts'];
-
-  for (const ext of fileExtensions) {
-    try {
-      const url = new URL(`../data/${fileName}.${ext}`, import.meta.url).href;
-      const mod = await import(url);
-
-      // 動的に定数名でアクセス (mod[constantName])
-      const list = (mod?.[constantName] || mod?.default || []) as string[];
-      return list;
-    } catch {
-      continue; // 次の拡張子を試す
-    }
-  }
-
-  // ファイルが見つからなかった場合
-  console.warn(
-    warn,
-    chalk.bgYellow.black(' WARN '),
-    chalk.yellow(
-      `${fileName} file not found. Autocomplete and validation for ${fileName} will be disabled.`
-    )
-  );
-  return [];
-}
-
-function levenshtein(a: string, b: string): number {
-  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
-  for (let i = 0; i <= a.length; i++) {
-    dp[i][0] = i;
-  }
-  for (let j = 0; j <= b.length; j++) {
-    dp[0][j] = j;
-  }
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-    }
-  }
-  return dp[a.length][b.length];
-}
-
-export function suggestSimilar(input: string, pool: string[], max = 5): string[] {
-  const scores = pool.map((p) => ({ p, d: levenshtein(input, p) }));
-  scores.sort((a, b) => a.d - b.d);
-  return scores.slice(0, max).map((s) => s.p);
-}
-
-function isValidPositionToken(token: string): boolean {
-  // allow: 5, -3, ~, ~5
-  return /^(?:~-?\d+|~|-?\d+)$/.test(token);
-}
-
-function isValidPosition(pos: string): boolean {
-  const tokens = pos.trim().split(/\s+/);
-  if (tokens.length !== 3) return false;
-  return tokens.every(isValidPositionToken);
-}
-
-/**
- * 選択肢から１つ選択させるプロンプト
- * @param message 質問のメッセージ
- * @param choices 選択肢の配列: string[]
- * @returns 選択された値: Promise<string>
- */
-export async function selectFromList(
-  message: string,
-  choices: string[],
-  allowCancel: boolean = false
-): Promise<string> {
-  const promptChoices = choices.map((c) => ({ name: c, value: c }));
-  const enquirerModule = Enquirer as EnquirerModule;
-  const Select = enquirerModule.Select || enquirerModule.default?.Select;
-  if (!Select) {
-    throw new Error('enquirer Select not available');
-  }
-
-  const prompt = new Select({
-    name: 'selected',
-    message,
-    choices: promptChoices.map((p) => ({ name: p.name, value: p.value })),
-    // show all choices
-    limit: promptChoices.length,
-    footer: chalk.gray.italic('Use arrow keys to navigate and press Enter to select.'),
-    onCancel: () => {
-      throw new CancelError();
-    },
-  }) as EnquirerBasePrompt;
-
-  return (await runPromptWithCancel(prompt, allowCancel)) as unknown as string;
-}
-
-/** トグルプロンプトでYes/Noを選択させる
- * @param message 質問のメッセージ
- * @param trueLabel 'true'の時に表示するラベル
- * @param falseLabel 'false'の時に表示するラベル
- * @returns Promise<boolean> ユーザーの選択 (true/false)
- */
-
-export async function toggleQuestion(
-  message: string,
-  trueLabel: string = 'Yes',
-  falseLabel: string = 'No',
-  allowCancel: boolean = false
-): Promise<boolean> {
-  const enquirerModule = Enquirer as EnquirerModule;
-  const Toggle = enquirerModule.Toggle || enquirerModule.default?.Toggle;
-  if (!Toggle) {
-    throw new Error('enquirer Toggle not available');
-  }
-
-  const prompt = new Toggle({
-    name: 'question',
-    message: chalk.cyan(message),
-    enabled: chalk.green(trueLabel),
-    disabled: chalk.red(falseLabel),
-    onCancel: () => {
-      throw new CancelError();
-    },
-  }) as EnquirerBasePrompt;
-
-  const answer = await runPromptWithCancel(prompt, allowCancel);
-  if (answer === 'back') {
-    return false;
-  }
-  return answer as unknown as boolean;
-}
-
-/**
- * フォームプロンプトを表示して複数の入力を受け取る
- * @param message 質問のメッセージ
- * @param choices 選択肢の配列
- * @param choices.name 名前
- * * @param choices.message メッセージ
- * * @param choices.initial 初期値（オプション）
- * @returns 選択された値: Promise<any> - オブジェクトで返す / キャンセル時には'__BACK__'を返す
- */
-export async function fillOutForm(
-  message: string,
-  choices: {
-    name: string;
-    message: string;
-    type: 'string' | 'number' | 'boolean';
-    initial?: string;
-  }[],
-  allowCancel: boolean = false
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Promise<any> {
-  const enquirerModule = Enquirer as EnquirerModule;
-  const Form = enquirerModule.Form || enquirerModule.default?.Form;
-  if (!Form) {
-    throw new Error('enquirer Form not available');
-  }
-
-  const prompt = new Form({
-    name: 'form',
-    message: chalk.cyan(message),
-    choices,
-    // show all choices
-    stdout: process.stdout,
-    stdin: process.stdin,
-    onCancel: () => {
-      throw new CancelError();
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    validate(value: any) {
-      // 全項目が入力されているか簡易チェック
-      for (const choice of choices) {
-        const input = String(value[choice.name]).trim();
-        if (!input) {
-          return `${chalk.bgRed.white(' ERROR ')} ${chalk.red('All fields are required.')}`;
-        }
-
-        if (choice.type === 'number') {
-          // 数字（整数・小数）以外を拒否
-          if (isNaN(Number(input))) {
-            return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number.`)}`;
-          }
-        }
-
-        if (choice.type === 'boolean') {
-          // true / false 以外を拒否
-          const lowered = input.toLowerCase();
-          if (lowered !== 'true' && lowered !== 'false') {
-            return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be "true" or "false".`)}`;
-          }
-        }
-      }
-      return true;
-    },
-  }) as EnquirerBasePrompt;
-
-  try {
-    return await prompt.run();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (err: any) {
-    if (err.message === 'CANCEL') {
-      if (allowCancel) {
-        return '__BACK__';
-      }
-      console.log(
-        chalk.bgYellow.black(' CANCELED '),
-        chalk.yellow('Ctrl + C detected. This process will be closed...')
-      );
-      process.exit(0);
-    }
-    throw err;
   }
 }
 
@@ -293,29 +55,23 @@ export function createCommand(): Command {
   cmd.action(async (options) => {
     switch (options.copy) {
       case 'false': {
-        console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will not be copied to clipboard')}`
-        );
+        console.log(`${info} ${chalk.green.bold('The command will not be copied to clipboard')}`);
         break;
       }
       default: {
-        console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copied to clipboard')}`
-        );
+        console.log(`${info} ${chalk.green.bold('The command will be copied to clipboard')}`);
         break;
       }
     }
 
     if (options.silent) {
       console.log(
-        `${chalk.bgYellow.black(' WARN ')} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
+        `${warn} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
       );
     }
 
     if (options.slash === false) {
-      console.log(
-        `${chalk.bgBlue.black(' INFO ')} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`
-      );
+      console.log(`${info} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`);
     }
 
     const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
@@ -592,22 +348,22 @@ export function createCommand(): Command {
     if (options.copy === 'false') {
       process.exit();
     } else {
-      // readline インターフェースの代わりに Input プロンプトを使用
-      const enquirerModule = Enquirer as EnquirerModule;
-      // Enquirer の Input プロンプトを使用
-      const Input = enquirerModule.Input || enquirerModule.default?.Input;
-
       if (!Input) {
         throw new Error('enquirer Input not available');
       }
 
       const confirmPrompt = new Input({
         message: `${info} ${chalk.cyan('Press Enter to copy to clipboard...')}`,
+        /*
+        onCancel: () => {
+          throw new CancelError();
+        },
+        */
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any;
 
       try {
-        await confirmPrompt.run();
+        await runPromptWithCancel(confirmPrompt, false);
         await clipboard.write(generatedCommand);
         console.log(success, chalk.green('Command copied to clipboard!'));
         if (!options.silent) {

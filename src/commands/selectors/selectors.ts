@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { createQuestion, selectFromList, toggleQuestion } from '../create.js';
+import { createQuestion, selectFromList, toggleQuestion } from '../../util/questionsFunc.js';
 
 let addSelectors: string = '';
 let selector: string = '';
