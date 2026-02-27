@@ -5,6 +5,7 @@ import {
   selectFromList,
   toggleQuestion,
   fillOutForm,
+  runPrompt,
 } from '../../util/questionsFunc.js';
 import { warn, error } from '../../util/symbols.js';
 import { EnquirerModule, EnquirerBasePrompt } from '../../types/enquirer.js';
@@ -209,12 +210,14 @@ export async function addItemComponentsQuestion(): Promise<string> {
               if (AutoComplete && enchantments.length > 0) {
                 const ac = new AutoComplete({
                   name: 'enchantments',
-                  message: 'Enchantments (e.g., sharpness, unbreaking, ...): ',
-                  choices: enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
+                  message:
+                    'Enchantments (e.g., sharpness, unbreaking, ... Choose back to go back): ',
+                  choices: { name: 'mc_cmd_gen_CLI:back', value: '__BACK__' },
+                  ...enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
                   limit: 10,
                 }) as EnquirerBasePrompt;
                 try {
-                  const val = await ac.run();
+                  const val = await runPrompt(ac);
                   enchantments_name = String(val).trim(); // value is normalized (no prefix)
                 } catch {
                   // fallback to plain input
@@ -226,6 +229,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
                 enchantments_name = await createQuestion(
                   chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
                 );
+              }
+              if (enchantments_name.trim().toLowerCase() === '__BACK__') {
+                console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+                console.log('\n');
+                break;
               }
 
               // Normalize block id: allow with or without minecraft: prefix
@@ -259,8 +267,15 @@ export async function addItemComponentsQuestion(): Promise<string> {
             let validLevel = false;
             while (!validLevel) {
               const enchantmentLevel = await createQuestion(
-                chalk.cyan(`Enchantment(${enchantments_name}) level(1~255): `)
+                chalk.cyan(
+                  `Enchantment(${enchantments_name}) level(1~255) Type "back" to go back: `
+                )
               );
+              if (enchantmentLevel.trim().toLowerCase() === 'back') {
+                console.log(warn, chalk.yellow(' Cancelled. Back to enchantments selection.'));
+                console.log('\n');
+                break;
+              }
               if (!enchantmentLevel.trim()) {
                 console.log(error, chalk.red(' Please enter an enchantment level.'));
                 continue;
@@ -326,13 +341,10 @@ export async function addItemComponentsQuestion(): Promise<string> {
               initial: 'false',
               type: 'boolean',
             },
-          ],
-          true
+          ]
         );
 
         if (comp_food === '__BACK__') {
-          console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
-          console.log('\n');
           break;
         }
 
@@ -369,7 +381,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
             }) as EnquirerBasePrompt;
 
             try {
-              const val = await ac.run();
+              const val = await runPrompt(ac);
               input = String(val).trim();
             } catch {
               input = await createQuestion(
@@ -534,7 +546,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
               }) as EnquirerBasePrompt;
 
               try {
-                const val = await ac.run();
+                const val = await runPrompt(ac);
                 input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
               } catch {
                 input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
@@ -659,7 +671,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
               }) as EnquirerBasePrompt;
 
               try {
-                const val = await ac.run();
+                const val = await runPrompt(ac);
                 input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
               } catch {
                 input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));

@@ -8,42 +8,16 @@ import { addSelectorsQuestion } from './selectors/selectors.js';
 import { addItemComponentsQuestion } from './item-components/item-component.js';
 import { info, success, warn, error } from '../util/symbols.js';
 import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
-import { createQuestion, selectFromList, toggleQuestion } from '../util/questionsFunc.js';
+import {
+  createQuestion,
+  selectFromList,
+  toggleQuestion,
+  runPrompt,
+} from '../util/questionsFunc.js';
 import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
 // import figureSet from 'figures';
 
 const { Input } = Enquirer as unknown as EnquirerModule;
-
-// 共通のエラーハンドリング関数
-export async function runPromptWithCancel<T>(
-  prompt: EnquirerBasePrompt,
-  allowCancel: boolean
-): Promise<T | 'back'> {
-  try {
-    const result = await prompt.run();
-    return result as T;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    // 自分で投げたキャンセルエラーの場合
-    if (e === '' || e.code === 'ERR_USE_AFTER_CLOSE' || e.message === 'CANCEL') {
-      if (allowCancel) {
-        // コンポーネント選択に戻す機能用（今はまだ使いませんが、準備しておきます）
-        // 'back' という文字列が入力されたかのように振る舞う
-        return 'back';
-      } else {
-        // カーソルを再表示してから終了する (重要)
-        process.stdout.write('\x1B[?25h');
-        // メインの処理でのキャンセルの場合は終了
-        console.log(
-          chalk.bgYellow.black(' CANCELED '),
-          chalk.yellow('Ctrl + C detected. This process will be closed...')
-        );
-        process.exit(0);
-      }
-    }
-    throw e; // それ以外の予期せぬエラーはそのまま投げる
-  }
-}
 
 export function createCommand(): Command {
   const cmd = new Command('create');
@@ -363,7 +337,7 @@ export function createCommand(): Command {
       }) as any;
 
       try {
-        await runPromptWithCancel(confirmPrompt, false);
+        await runPrompt(confirmPrompt);
         await clipboard.write(generatedCommand);
         console.log(success, chalk.green('Command copied to clipboard!'));
         if (!options.silent) {
