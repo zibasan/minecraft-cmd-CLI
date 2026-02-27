@@ -1,8 +1,18 @@
 #!/usr/bin/env node
+import chalk from 'chalk';
 import { Command } from 'commander';
 import { createCommand } from './commands/create.js';
 import { blockCommand } from './commands/block.js';
 import { colorCodeCommand } from './commands/colorcode.js';
+
+process.on('SIGINT', () => {
+  console.log(
+    chalk.bgYellow.black(' CANCELED '),
+    chalk.yellow('Ctrl + C was detected. This process will be closed...')
+  );
+  process.stdout.write('\x1B[?25h');
+  process.exit(0);
+});
 
 const program = new Command();
 program

@@ -1,34 +1,22 @@
 import chalk from 'chalk';
+import { loadDataLists, suggestSimilar } from '../../util/utilsFunc.js';
 import {
   createQuestion,
-  loadBlocksList,
-  loadEnchantmentsList,
-  loadSoundsList,
   selectFromList,
-} from '../create.js';
-import { warn, error } from '../../util/emojis.js';
+  toggleQuestion,
+  fillOutForm,
+  runPrompt,
+} from '../../util/questionsFunc.js';
+import { warn, error } from '../../util/symbols.js';
 import { EnquirerModule, EnquirerBasePrompt } from '../../types/enquirer.js';
-import { suggestSimilar } from '../create.js';
+import Enquirer from 'enquirer';
+import { COMPONENT_DESCRIPTIONS } from '../../util/utils.js';
 
 export async function addItemComponentsQuestion(): Promise<string> {
-  console.log(`${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
+  console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
 
   const addedComponents: string[] = [];
-  const itemComponentsTypes = [
-    'item_name',
-    'custom_name',
-    'lore',
-    'damage',
-    'enchantment_glint_override',
-    'enchantments',
-    'food',
-    'break_sound',
-    'max_damage',
-    'can_break',
-    'can_place_on',
-    'max_stack_size',
-    'rarity',
-  ];
+  const itemComponentsTypes = Object.keys(COMPONENT_DESCRIPTIONS);
 
   let continueAdding = true;
 
@@ -38,25 +26,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
     );
 
     const componentsOptions = [
-      ...availableComponents.map((s) => {
-        const descriptions: { [key: string]: string } = {
-          item_name: 'Item Name(Override the original name)',
-          custom_name:
-            'Item Name(looks like it was edited with an anvil, do not override the original name)',
-          lore: 'Item Lore',
-          damage: 'How much to reduce the durability',
-          enchantment_glint_override: 'Whether show glint of enchantment(no enchantments)',
-          enchantments: 'Item Enchantments',
-          food: 'Setting edible items',
-          break_sound: 'The sound played when the item is broken',
-          max_damage: 'The maximum durability value of that item',
-          max_stack_size: 'The maximum stack size value of that item',
-          can_break: 'Specify breakable blocks in adventure mode',
-          can_place_on: 'Specify the blocks on witch this can be placed in adventure mode',
-          rarity: 'Item Rarity',
-        };
-        return `${s} - ${descriptions[s] || s}`;
-      }),
+      ...availableComponents.map((s) => `${s} - ${COMPONENT_DESCRIPTIONS[s] || s}`),
       'OK',
     ];
 
@@ -97,7 +67,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
         while (true) {
           const comp_customName = await createQuestion(
             chalk.cyan(
-              'custom_name(looks like it was edited with an anvil; ',
+              'custom_name(do not override the original name)',
               chalk.italic('italic'),
               "). Type 'back' to go back: "
             )
@@ -199,19 +169,16 @@ export async function addItemComponentsQuestion(): Promise<string> {
 
       case 'enchantment_glint_override': {
         while (true) {
-          const comp_glintTF = await createQuestion(
+          const comp_glintTF = await selectFromList(
             chalk.cyan(
               'enchantment_glint_override(whether to add the glow of the enchantment(no enchantment), boolean). Type "back" to go back: '
-            )
+            ),
+            ['true', 'false', 'back']
           );
-          if (comp_glintTF.trim().toLowerCase() === 'back') {
+          if (comp_glintTF === 'back') {
             console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
             console.log('\n');
             break;
-          }
-          if (!comp_glintTF.trim()) {
-            console.log(error, chalk.red('Please enter a boolean.'));
-            continue;
           }
           console.log(
             chalk.blue(`enchantment_glint_override: `),
@@ -228,7 +195,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
         const comp_enchantmentsList: string[] = [];
         let addMoreEnchantments = true;
 
-        const enchantments = await loadEnchantmentsList();
+        const enchantments = await loadDataLists('enchantments', 'ENCHANTMENTS');
         let enchantments_name = '';
 
         while (addMoreEnchantments) {
@@ -236,19 +203,21 @@ export async function addItemComponentsQuestion(): Promise<string> {
           while (true) {
             do {
               // For block id, use enquirer AutoComplete for tab completion
-              const enquirerModule = (await import('enquirer')) as EnquirerModule;
+              const enquirerModule = Enquirer as EnquirerModule;
               const AutoComplete =
                 enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
 
               if (AutoComplete && enchantments.length > 0) {
                 const ac = new AutoComplete({
                   name: 'enchantments',
-                  message: 'Enchantments (e.g., sharpness, unbreaking, ...): ',
-                  choices: enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
+                  message:
+                    'Enchantments (e.g., sharpness, unbreaking, ... Choose back to go back): ',
+                  choices: { name: 'mc_cmd_gen_CLI:back', value: '__BACK__' },
+                  ...enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
                   limit: 10,
                 }) as EnquirerBasePrompt;
                 try {
-                  const val = await ac.run();
+                  const val = await runPrompt(ac);
                   enchantments_name = String(val).trim(); // value is normalized (no prefix)
                 } catch {
                   // fallback to plain input
@@ -260,6 +229,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
                 enchantments_name = await createQuestion(
                   chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
                 );
+              }
+              if (enchantments_name.trim().toLowerCase() === '__BACK__') {
+                console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+                console.log('\n');
+                break;
               }
 
               // Normalize block id: allow with or without minecraft: prefix
@@ -293,8 +267,15 @@ export async function addItemComponentsQuestion(): Promise<string> {
             let validLevel = false;
             while (!validLevel) {
               const enchantmentLevel = await createQuestion(
-                chalk.cyan(`Enchantment(${enchantments_name}) level(1~255): `)
+                chalk.cyan(
+                  `Enchantment(${enchantments_name}) level(1~255) Type "back" to go back: `
+                )
               );
+              if (enchantmentLevel.trim().toLowerCase() === 'back') {
+                console.log(warn, chalk.yellow(' Cancelled. Back to enchantments selection.'));
+                console.log('\n');
+                break;
+              }
               if (!enchantmentLevel.trim()) {
                 console.log(error, chalk.red(' Please enter an enchantment level.'));
                 continue;
@@ -314,13 +295,9 @@ export async function addItemComponentsQuestion(): Promise<string> {
               console.log('\n');
 
               // 3. "他の"エンチャントを追加するかどうか選択
-              const addMoreOptions = ['y - Add another enchantment', 'N - Finish'];
-              const addMoreResult = await selectFromList(
-                chalk.cyan('Add another enchantment?(y/N)'),
-                addMoreOptions
-              );
+              const addMoreResult = await toggleQuestion(chalk.cyan('Add another enchantment?'));
 
-              if (addMoreResult.split(' ')[0].toLowerCase() === 'n') {
+              if (addMoreResult === false) {
                 addMoreEnchantments = false;
               } else {
                 console.log(
@@ -351,21 +328,27 @@ export async function addItemComponentsQuestion(): Promise<string> {
       }
 
       case 'food': {
-        const comp_food = await createQuestion(
+        const comp_food = await fillOutForm(
           chalk.cyan(
-            'food',
-            '(format: <nutriton(int)>,<saturation(int)>,<can_always_eat(bool)>\n    nutrition: Amount of hunger level restored when eating\n    saturation: Amount of hidden hunger level restored when eating\n    can_always_eat: Whether can eat when the hunger level is MAX)',
-            '. Type "back" to go back: '
-          )
+            'Enter food properties (nutrition, saturation, can_always_eat). Press Ctrl+C to cancel and go back.'
+          ),
+          [
+            { name: 'nutrition', message: 'Nutrition (int)', initial: '5', type: 'number' },
+            { name: 'saturation', message: 'Saturation (float)', initial: '0.3', type: 'number' },
+            {
+              name: 'can_always_eat',
+              message: 'Can always eat (bool)',
+              initial: 'false',
+              type: 'boolean',
+            },
+          ]
         );
 
-        if (comp_food.toLowerCase() === 'back') {
-          console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
-          console.log('\n');
+        if (comp_food === '__BACK__') {
           break;
         }
 
-        const [nutrition, saturation, can_always_eat] = comp_food.trim().split(',');
+        const { nutrition, saturation, can_always_eat } = comp_food;
         const foodPrettied = `nutrition:${nutrition}, saturation:${saturation}, can_always_eat:${can_always_eat}`;
 
         console.log(chalk.blue(`food: `), `${chalk.green.bold(foodPrettied)}`);
@@ -375,85 +358,92 @@ export async function addItemComponentsQuestion(): Promise<string> {
       }
 
       case 'break_sound': {
-        const sounds = await loadSoundsList();
-        let sound_name = '';
+        const sounds = await loadDataLists('sounds', 'SOUNDS');
         let final_soundName = '';
+        let backed = false;
 
-        // 有効なサウンドが入力されるまで繰り返す（バリデーションループ）
+        // --- 有効なサウンド名が決まるまで回るループ ---
         while (true) {
-          const enquirerModule = (await import('enquirer')) as EnquirerModule;
+          const enquirerModule = Enquirer as EnquirerModule;
           const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
 
+          let input = '';
           if (AutoComplete && sounds.length > 0) {
             const ac = new AutoComplete({
               name: 'sounds',
-              message: 'Select break sound (e.g., block.snow.break): ',
-              choices: sounds.map((s) => ({ name: `${s}`, value: s })),
+              message: 'Select break sound (Choose "mc_cmd_gen_cli:back" to go back): ',
+              // soundsは既に "minecraft:..." 形式なので、そのままnameに使用
+              choices: [
+                ...sounds.map((s) => ({ name: s, value: s })),
+                { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
+              ],
               limit: 10,
             }) as EnquirerBasePrompt;
+
             try {
-              const val = await ac.run();
-              sound_name = String(val).trim();
+              const val = await runPrompt(ac);
+              input = String(val).trim();
             } catch {
-              // フォールバック: 通常のテキスト入力
-              sound_name = await createQuestion(
-                chalk.cyan('Sounds (e.g., minecraft:block.snow.break, ...): ')
+              input = await createQuestion(
+                chalk.cyan('Sound ID (e.g., block.snow.break) or "back": ')
               );
             }
           } else {
-            sound_name = await createQuestion(
-              chalk.cyan('Sounds (e.g., minecraft:block.snow.break, ...): ')
+            input = await createQuestion(
+              chalk.cyan('Sound ID (e.g., block.snow.break) or "back": ')
             );
           }
 
-          if (sound_name.toLowerCase() === 'minecraft_cli:back') {
-            console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
-            console.log('\n');
+          input = input.trim();
+
+          // 戻る処理
+          if (input === '__BACK__') {
+            backed = true;
             break;
           }
 
-          // 入力値の正規化と存在チェック
-          // 1. 入力された値にプレフィックスがなければ付与する（正規化）
-          const fullName = sound_name.startsWith('minecraft:')
-            ? sound_name
-            : `minecraft:${sound_name}`;
-
-          // 2. sounds.ts の内容とそのまま比較する
-          const exists = sounds.includes(fullName);
-
-          if (!sound_name.trim()) {
+          if (!input) {
             console.log(error, chalk.red('Please enter sound name.'));
             continue;
           }
 
-          if (!exists) {
-            // 3. 類似検索の結果をそのまま使う（sounds内には既にminecraft:が含まれているため）
-            const suggestions = suggestSimilar(fullName, sounds);
+          // 入力値の正規化（minecraft:がなければ付与）
+          const fullName = input.startsWith('minecraft:') ? input : `minecraft:${input}`;
+
+          // 存在チェック (sounds内には既にminecraft:が含まれているため、fullNameと直接比較)
+          if (!sounds.includes(fullName)) {
+            const suggestions = suggestSimilar(fullName, sounds).filter((s) => s !== '__BACK__');
 
             console.log(chalk.red(`Sound "${fullName}" not found.`));
             if (suggestions.length > 0) {
               console.log(chalk.yellow('Did you mean:'));
-              suggestions.forEach((s) => console.log(`  - ${s}`)); // ここで再付与しない
+              suggestions.forEach((s) => console.log(`  - ${s}`));
             }
             console.log(
               error,
               chalk.cyan('Please enter a valid sound name (try Tab to autocomplete).')
             );
-            sound_name = '';
             continue;
           }
 
-          // 確定した名前を格納
+          // チェック通過
           final_soundName = fullName;
-
-          // 有効なサウンドが確定
           break;
         }
 
-        // コンポーネントに追加（単一の値を代入）
-        console.log(chalk.blue(`break_sound: `), `${chalk.green.bold(final_soundName)}`);
-        addedComponents.push(`break_sound="${final_soundName}"`);
+        // 「back」が選択された場合
+        if (backed) {
+          console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+          console.log('\n');
+          break;
+        }
 
+        // コンポーネントに追加
+        if (final_soundName) {
+          console.log(chalk.blue(`break_sound: `), `${chalk.green.bold(final_soundName)}`);
+          addedComponents.push(`break_sound="${final_soundName}"`);
+          console.log('\n');
+        }
         break;
       }
 
@@ -531,14 +521,14 @@ export async function addItemComponentsQuestion(): Promise<string> {
         const comp_blocksList: string[] = [];
         let addMoreBlocks = true;
         let backed = false;
-        const blocks = await loadBlocksList();
+        const blocks = await loadDataLists('blocks', 'BLOCKS');
 
         while (addMoreBlocks) {
           let current_name = ''; // このターンで入力する名前をリセット
 
           // --- 1. 有効なブロック名が決まるまで回るループ ---
           while (true) {
-            const enquirerModule = (await import('enquirer')) as EnquirerModule;
+            const enquirerModule = Enquirer as EnquirerModule;
             const AutoComplete =
               enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
 
@@ -556,7 +546,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
               }) as EnquirerBasePrompt;
 
               try {
-                const val = await ac.run();
+                const val = await runPrompt(ac);
                 input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
               } catch {
                 input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
@@ -624,14 +614,12 @@ export async function addItemComponentsQuestion(): Promise<string> {
           console.log(chalk.blue(`Added Block: `), `${chalk.green.bold(current_name)}`);
 
           // --- 2. 他のブロックを追加するかどうか選択 ---
-          const addMoreOptions = ['y - Add another block', 'N - Finish'];
-          const addMoreResult = await selectFromList(
-            chalk.cyan('Add another block to "can_break"?(y/N)'),
-            addMoreOptions
+          const addMoreResult = await toggleQuestion(
+            chalk.cyan('Add another block to "can_break"?')
           );
           console.log('\n');
 
-          if (addMoreResult.split(' ')[0].toLowerCase() === 'n') {
+          if (addMoreResult === false) {
             addMoreBlocks = false;
           }
         }
@@ -658,14 +646,14 @@ export async function addItemComponentsQuestion(): Promise<string> {
         const comp_blocksList: string[] = [];
         let addMoreBlocks = true;
         let backed = false;
-        const blocks = await loadBlocksList();
+        const blocks = await loadDataLists('blocks', 'BLOCKS');
 
         while (addMoreBlocks) {
           let current_name = ''; // このターンで入力する名前をリセット
 
           // --- 1. 有効なブロック名が決まるまで回るループ ---
           while (true) {
-            const enquirerModule = (await import('enquirer')) as EnquirerModule;
+            const enquirerModule = Enquirer as EnquirerModule;
             const AutoComplete =
               enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
 
@@ -683,7 +671,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
               }) as EnquirerBasePrompt;
 
               try {
-                const val = await ac.run();
+                const val = await runPrompt(ac);
                 input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
               } catch {
                 input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
@@ -751,14 +739,12 @@ export async function addItemComponentsQuestion(): Promise<string> {
           console.log(chalk.blue(`Added Block: `), `${chalk.green.bold(current_name)}`);
 
           // --- 2. 他のブロックを追加するかどうか選択 ---
-          const addMoreOptions = ['y - Add another block', 'N - Finish'];
-          const addMoreResult = await selectFromList(
-            chalk.cyan('Add another block to "can_place_on"?(y/N)'),
-            addMoreOptions
+          const addMoreResult = await toggleQuestion(
+            chalk.cyan('Add another block to "can_place_on"?')
           );
           console.log('\n');
 
-          if (addMoreResult.split(' ')[0].toLowerCase() === 'n') {
+          if (addMoreResult === false) {
             addMoreBlocks = false;
           }
         }

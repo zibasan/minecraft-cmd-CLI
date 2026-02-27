@@ -1,198 +1,23 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import clipboard from 'clipboardy';
-import { createInterface } from 'readline';
 import ora from 'ora';
-
-// path not required here
-
+import Enquirer from 'enquirer';
 import { sendNotify } from '../features/notifier.js';
-import { addtionalSelectorsQuestion } from './selectors/selectors.js';
+import { addSelectorsQuestion } from './selectors/selectors.js';
 import { addItemComponentsQuestion } from './item-components/item-component.js';
+import { info, success, warn, error } from '../util/symbols.js';
+import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
+import {
+  createQuestion,
+  selectFromList,
+  toggleQuestion,
+  runPrompt,
+} from '../util/questionsFunc.js';
+import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
+// import figureSet from 'figures';
 
-import { info, success, warn, error } from '../util/emojis.js';
-import type { EnquirerChoice, EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
-
-export function createQuestion(query: string): Promise<string> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(query, (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
-}
-
-export async function loadBlocksList(): Promise<string[]> {
-  // Try to import the generated JS module (when running built dist)
-  try {
-    const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
-    const list = (mod?.BLOCKS || mod?.default || []) as string[];
-    return list;
-  } catch {
-    // Try to import TS directly (when running with ts-node)
-    try {
-      const mod = await import(new URL('../data/blocks.ts', import.meta.url).href);
-      const list = (mod?.BLOCKS || mod?.default || []) as string[];
-      return list;
-    } catch {
-      // If blocks file is not available, log a warning and return empty array
-      console.warn(
-        chalk.yellow(
-          'Warning: blocks.ts/blocks.js file not found. Block autocomplete and validation will be disabled.'
-        )
-      );
-      return [];
-    }
-  }
-}
-
-export async function loadEnchantmentsList(): Promise<string[]> {
-  // Try to import the generated JS module (when running built dist)
-  try {
-    const mod = await import(new URL('../data/enchantments.js', import.meta.url).href);
-    const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
-    return list;
-  } catch {
-    // Try to import TS directly (when running with ts-node)
-    try {
-      const mod = await import(new URL('../data/enchantments.ts', import.meta.url).href);
-      const list = (mod?.ENCHANTMENTS || mod?.default || []) as string[];
-      return list;
-    } catch {
-      // If blocks file is not available, log a warning and return empty array
-      console.warn(
-        chalk.yellow(
-          'Warning: enchantments.ts/enchantments.js file not found. Enchantments autocomplete and validation will be disabled.'
-        )
-      );
-      return [];
-    }
-  }
-}
-
-export async function loadSoundsList(): Promise<string[]> {
-  // Try to import the generated JS module (when running built dist)
-  try {
-    const mod = await import(new URL('../data/sounds.js', import.meta.url).href);
-    const list = (mod?.SOUNDS || mod?.default || []) as string[];
-    return list;
-  } catch {
-    // Try to import TS directly (when running with ts-node)
-    try {
-      const mod = await import(new URL('../data/sounds.ts', import.meta.url).href);
-      const list = (mod?.SOUNDS || mod?.default || []) as string[];
-      return list;
-    } catch {
-      // If sounds file is not available, log a warning and return empty array
-      console.warn(
-        chalk.yellow(
-          'Warning: sounds.ts/sounds.js file not found. Sounds autocomplete and validation will be disabled.'
-        )
-      );
-      return [];
-    }
-  }
-}
-
-function levenshtein(a: string, b: string): number {
-  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
-  for (let i = 0; i <= a.length; i++) {
-    dp[i][0] = i;
-  }
-  for (let j = 0; j <= b.length; j++) {
-    dp[0][j] = j;
-  }
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-    }
-  }
-  return dp[a.length][b.length];
-}
-
-export function suggestSimilar(input: string, pool: string[], max = 5): string[] {
-  const scores = pool.map((p) => ({ p, d: levenshtein(input, p) }));
-  scores.sort((a, b) => a.d - b.d);
-  return scores.slice(0, max).map((s) => s.p);
-}
-
-function isValidPositionToken(token: string): boolean {
-  // allow: 5, -3, ~, ~5
-  return /^(?:~-?\d+|~|-?\d+)$/.test(token);
-}
-
-function isValidPosition(pos: string): boolean {
-  const tokens = pos.trim().split(/\s+/);
-  if (tokens.length !== 3) return false;
-  return tokens.every(isValidPositionToken);
-}
-
-export async function selectFromList(message: string, choices: string[]): Promise<string> {
-  const promptChoices = choices.map((c) => ({ name: c, value: c }));
-  const enquirerModule = (await import('enquirer')) as EnquirerModule;
-  const MultiSelect = enquirerModule.MultiSelect || enquirerModule.default?.MultiSelect;
-  if (!MultiSelect) {
-    throw new Error('enquirer MultiSelect not available');
-  }
-
-  const prompt = new MultiSelect({
-    name: 'selected',
-    message,
-    choices: promptChoices.map((p) => ({ name: p.name, value: p.value })),
-    // show all choices
-    limit: promptChoices.length,
-  }) as EnquirerBasePrompt;
-
-  const stdin = process.stdin;
-  const onData = (chunk: Buffer | string) => {
-    const key = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
-    if (key === ' ') {
-      // When space pressed, enforce single selection: mark only the focused choice as enabled
-      try {
-        // try to read current index from prompt
-        const idx = typeof prompt.index === 'number' ? prompt.index : (prompt.cursor ?? 0);
-        prompt.choices.forEach((c: EnquirerChoice, i: number) => {
-          c.enabled = i === idx;
-        });
-        try {
-          // re-render to update visual checkboxes
-          prompt.render?.();
-        } catch {
-          void 0;
-        }
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  stdin.resume();
-  stdin.on('data', onData);
-
-  try {
-    const result = await prompt.run();
-    // MultiSelect returns an array — but we enforce single selection above
-    if (Array.isArray(result)) {
-      if (result.length > 0) {
-        return result[0];
-      }
-      // If nothing was checked (user pressed Enter), use focused index
-      const idx = typeof prompt.index === 'number' ? prompt.index : (prompt.cursor ?? 0);
-      const choice = prompt.choices[idx];
-      return choice && choice.value ? choice.value : '';
-    }
-    return result;
-  } finally {
-    stdin.removeListener('data', onData);
-    stdin.pause();
-  }
-}
+const { Input } = Enquirer as unknown as EnquirerModule;
 
 export function createCommand(): Command {
   const cmd = new Command('create');
@@ -203,36 +28,24 @@ export function createCommand(): Command {
 
   cmd.action(async (options) => {
     switch (options.copy) {
-      case 'true': {
-        console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copied to clipboard')}`
-        );
-        break;
-      }
       case 'false': {
-        console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will not be copied to clipboard')}`
-        );
+        console.log(`${info} ${chalk.green.bold('The command will not be copied to clipboard')}`);
         break;
       }
       default: {
-        console.log(
-          `${chalk.bgBlue.white(' INFO ')} ${chalk.green.bold('The command will be copied to clipboard')}`
-        );
+        console.log(`${info} ${chalk.green.bold('The command will be copied to clipboard')}`);
         break;
       }
     }
 
     if (options.silent) {
       console.log(
-        `${chalk.bgYellow.black(' WARN ')} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
+        `${warn} ${chalk.yellow.bold('Notification will not be sent when the command copied')}`
       );
     }
 
     if (options.slash === false) {
-      console.log(
-        `${chalk.bgBlue.black(' INFO ')} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`
-      );
+      console.log(`${info} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`);
     }
 
     const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
@@ -249,44 +62,9 @@ export function createCommand(): Command {
 
     switch (commandType) {
       case 'give': {
-        // Q2: Choose Target
-        const target = [
-          '@p - Near Player',
-          '@a - All Player',
-          '@s - Myself',
-          '@r - Random Player',
-          "@n - A Nearest Player (1.21+, same '@p[sort=nearest, limit=1]')",
-        ];
-        const targetType = (await selectFromList('Select a target selector type:', target)).split(
-          ' '
-        )[0];
-
-        console.log(chalk.blue(`Target:`), `${chalk.green(`${chalk.bold(targetType)}`)}`);
-        console.log('\n');
-
-        // Q2.5: Ask to refine target selector
-        const refineSelector = await createQuestion(
-          chalk.cyan('Want to further refine your target selector? (y/N): ')
-        );
-        const shouldRefine = refineSelector.toLowerCase() === 'y';
-        let addSelectors: string = '';
-        if (shouldRefine) {
-          addSelectors = await addtionalSelectorsQuestion();
-        } else {
-          console.log(
-            `${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('No')}`)}`
-          );
-        }
-
-        const addedSelectorsTF: boolean = addSelectors ? true : false;
-
-        if (addedSelectorsTF) {
-          selector = `${targetType}[${addSelectors}]`;
-        } else {
-          selector = `${targetType}`;
-        }
-
-        console.log('\n');
+        // Q2: Target selector
+        selector = await addSelectorsQuestion();
+        console.log(chalk.blue(`Target selector:`), `${chalk.green(`${chalk.bold(selector)}`)}`);
 
         // Q3: Enter item name (repeat until valid)
         let itemName = '';
@@ -300,10 +78,8 @@ export function createCommand(): Command {
         console.log('\n');
 
         // Q3.5: Ask to add additional component
-        const addComponentSelector = await createQuestion(
-          chalk.cyan('Add item component(s)? (y/N): ')
-        );
-        const shouldAdd = addComponentSelector.toLowerCase() === 'y';
+        const addComponentSelector = await toggleQuestion(chalk.cyan('Add item component(s)?: '));
+        const shouldAdd = addComponentSelector === true;
         let addComponents: string = '';
         if (shouldAdd) {
           addComponents = await addItemComponentsQuestion();
@@ -372,7 +148,7 @@ export function createCommand(): Command {
         let sbPosition = '';
         let sbBlock = '';
         // Load block list for validation / autocomplete
-        const blocks = await loadBlocksList();
+        const blocks = await loadDataLists('blocks', 'BLOCKS');
         do {
           sbPosition = await createQuestion(chalk.cyan('Position (e.g., 0 64 0): '));
           if (!sbPosition.trim()) {
@@ -381,7 +157,7 @@ export function createCommand(): Command {
           }
 
           // For block id, use enquirer AutoComplete for tab completion
-          const enquirerModule = (await import('enquirer')) as EnquirerModule;
+          const enquirerModule = Enquirer as EnquirerModule;
           const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
           if (AutoComplete && blocks.length > 0) {
             const ac = new AutoComplete({
@@ -431,7 +207,7 @@ export function createCommand(): Command {
         let fillTo = '';
         let fillBlock = '';
         // load blocks for autocomplete
-        const fillBlocks = await loadBlocksList();
+        const fillBlocks = await loadDataLists('blocks', 'BLOCKS');
         do {
           fillFrom = await createQuestion(chalk.cyan('From position (e.g., 0 64 0): '));
           if (!isValidPosition(fillFrom)) {
@@ -452,7 +228,7 @@ export function createCommand(): Command {
             continue;
           }
           if (fillBlocks.length > 0) {
-            const enquirerModule = (await import('enquirer')) as EnquirerModule;
+            const enquirerModule = Enquirer as EnquirerModule;
             const AutoComplete =
               enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
             if (AutoComplete) {
@@ -543,48 +319,36 @@ export function createCommand(): Command {
       `${success} ${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}`
     );
 
-    // Wait for Enter key
-    const rl = createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    if (options.copy === 'true') {
-      rl.question(`${info} chalk.cyan('Press Enter to copy to clipboard...'`, async () => {
-        try {
-          await clipboard.write(generatedCommand);
-          console.log(success, chalk.green('Command copied to clipboard!'));
-          if (!options.silent) {
-            sendNotify('Minecraft-Command-Gen-CLI', '✅️ The command was copied successfully.');
-          }
-        } catch {
-          console.log(error, chalk.red('Failed to copy command to clipboard'));
-          if (!options.silent) {
-            sendNotify('Minecraft-Command-Gen-CLI', '❌️ Failed to copy command.');
-          }
-        } finally {
-          rl.close();
-        }
-      });
-    } else if (options.copy === 'false') {
+    if (options.copy === 'false') {
       process.exit();
     } else {
-      rl.question(`${info} ${chalk.cyan('Press Enter to copy to clipboard...')}`, async () => {
-        try {
-          await clipboard.write(generatedCommand);
-          console.log(success, chalk.green('Command copied to clipboard!'));
-          if (!options.silent) {
-            sendNotify('Minecraft-Command-Gen-CLI', '✅️ The command was copied successfully.');
-          }
-        } catch {
-          console.log(error, chalk.red('Failed to copy command to clipboard'));
-          if (!options.silent) {
-            sendNotify('Minecraft-Command-Gen-CLI', '❌️ Failed to copy command.');
-          }
-        } finally {
-          rl.close();
+      if (!Input) {
+        throw new Error('enquirer Input not available');
+      }
+
+      const confirmPrompt = new Input({
+        message: `${info} ${chalk.cyan('Press Enter to copy to clipboard...')}`,
+        /*
+        onCancel: () => {
+          throw new CancelError();
+        },
+        */
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any;
+
+      try {
+        await runPrompt(confirmPrompt);
+        await clipboard.write(generatedCommand);
+        console.log(success, chalk.green('Command copied to clipboard!'));
+        if (!options.silent) {
+          sendNotify('Minecraft-Command-Gen-CLI', '✅️ The command was copied successfully.');
         }
-      });
+      } catch {
+        console.log(error, chalk.red('Failed to copy command to clipboard'));
+        if (!options.silent) {
+          sendNotify('Minecraft-Command-Gen-CLI', '❌️ Failed to copy command.');
+        }
+      }
     }
   });
 

@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { createQuestion } from './create.js';
+import { createQuestion } from '../util/questionsFunc.js';
 import clipboard from 'clipboardy';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import type { EnquirerModule, EnquirerBasePrompt } from '../types/enquirer.js';
-import { info, success, error } from '../util/emojis.js';
+import { info, success, error } from '../util/symbols.js';
 
 const DATA_TS = path.resolve('src/data/blocks.ts');
 
