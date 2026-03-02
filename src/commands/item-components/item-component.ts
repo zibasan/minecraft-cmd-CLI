@@ -5,13 +5,15 @@ import {
   selectFromList,
   toggleQuestion,
   fillOutForm,
-  runPrompt,
+  autoComplete,
 } from '../../util/questionsFunc.js';
 import { warn, error } from '../../util/symbols.js';
-import { EnquirerModule, EnquirerBasePrompt } from '../../types/enquirer.js';
-import Enquirer from 'enquirer';
 import { COMPONENT_DESCRIPTIONS } from '../../util/utils.js';
 
+/**
+ * 追加するコンポーネントを選択、さらにその内容を指定させる
+ * @return 追加されたコンポーネントを整形した文字列を返す
+ */
 export async function addItemComponentsQuestion(): Promise<string> {
   console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
 
@@ -202,41 +204,23 @@ export async function addItemComponentsQuestion(): Promise<string> {
           // 1. エンチャント名を入力
           while (true) {
             do {
-              // For block id, use enquirer AutoComplete for tab completion
-              const enquirerModule = Enquirer as EnquirerModule;
-              const AutoComplete =
-                enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+              enchantments_name = await autoComplete(
+                chalk.cyan(
+                  'Enchantment name (e.g., minecraft:sharpness). Choose "back" to go back: '
+                ),
+                chalk.cyan(
+                  'Enchantment name (e.g., minecraft:sharpness). Type "back" to go back: '
+                ),
+                enchantments
+              );
 
-              if (AutoComplete && enchantments.length > 0) {
-                const ac = new AutoComplete({
-                  name: 'enchantments',
-                  message:
-                    'Enchantments (e.g., sharpness, unbreaking, ... Choose back to go back): ',
-                  choices: { name: 'mc_cmd_gen_CLI:back', value: '__BACK__' },
-                  ...enchantments.map((e) => ({ name: `minecraft:${e}`, value: e })),
-                  limit: 10,
-                }) as EnquirerBasePrompt;
-                try {
-                  const val = await runPrompt(ac);
-                  enchantments_name = String(val).trim(); // value is normalized (no prefix)
-                } catch {
-                  // fallback to plain input
-                  enchantments_name = await createQuestion(
-                    chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
-                  );
-                }
-              } else {
-                enchantments_name = await createQuestion(
-                  chalk.cyan('Enchantments (e.g., sharpness, unbreaking, ...): ')
-                );
-              }
               if (enchantments_name.trim().toLowerCase() === '__BACK__') {
                 console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
                 console.log('\n');
                 break;
               }
 
-              // Normalize block id: allow with or without minecraft: prefix
+              // Normalize enchantments id: allow with or without minecraft: prefix
               const normalized = enchantments_name.startsWith('minecraft:')
                 ? enchantments_name.slice(10)
                 : enchantments_name;
@@ -364,37 +348,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
 
         // --- 有効なサウンド名が決まるまで回るループ ---
         while (true) {
-          const enquirerModule = Enquirer as EnquirerModule;
-          const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
-
-          let input = '';
-          if (AutoComplete && sounds.length > 0) {
-            const ac = new AutoComplete({
-              name: 'sounds',
-              message: 'Select break sound (Choose "mc_cmd_gen_cli:back" to go back): ',
-              // soundsは既に "minecraft:..." 形式なので、そのままnameに使用
-              choices: [
-                ...sounds.map((s) => ({ name: s, value: s })),
-                { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
-              ],
-              limit: 10,
-            }) as EnquirerBasePrompt;
-
-            try {
-              const val = await runPrompt(ac);
-              input = String(val).trim();
-            } catch {
-              input = await createQuestion(
-                chalk.cyan('Sound ID (e.g., block.snow.break) or "back": ')
-              );
-            }
-          } else {
-            input = await createQuestion(
-              chalk.cyan('Sound ID (e.g., block.snow.break) or "back": ')
-            );
-          }
-
-          input = input.trim();
+          const input = await autoComplete(
+            chalk.cyan('break_sound: Select a sound...'),
+            chalk.cyan('break_sound (e.g. block.stone.break etc.)'),
+            sounds
+          );
 
           // 戻る処理
           if (input === '__BACK__') {
@@ -528,34 +486,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
 
           // --- 1. 有効なブロック名が決まるまで回るループ ---
           while (true) {
-            const enquirerModule = Enquirer as EnquirerModule;
-            const AutoComplete =
-              enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
-
-            let input = '';
-            if (AutoComplete && blocks.length > 0) {
-              const ac = new AutoComplete({
-                name: 'blocks',
-                message: `can_break (Current: ${comp_blocksList.length}) - Select a block(Choose "mc_cmd_gen_cli:back" to go back)... : `,
-                // choicesのnameは表示用、valueは実際のID
-                choices: [
-                  ...blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
-                  { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
-                ],
-                limit: 10,
-              }) as EnquirerBasePrompt;
-
-              try {
-                const val = await runPrompt(ac);
-                input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
-              } catch {
-                input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
-              }
-            } else {
-              input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
-            }
-
-            input = input.trim();
+            const input = await autoComplete(
+              chalk.cyan(`can_break (Current: ${comp_blocksList.length}) - Select a block... `),
+              chalk.cyan('can_break (e.g. stone). Type "back" to go back: '),
+              blocks
+            );
             if (input === '__BACK__') {
               backed = true;
               break; // 内側の入力ループを抜ける
@@ -653,34 +588,12 @@ export async function addItemComponentsQuestion(): Promise<string> {
 
           // --- 1. 有効なブロック名が決まるまで回るループ ---
           while (true) {
-            const enquirerModule = Enquirer as EnquirerModule;
-            const AutoComplete =
-              enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+            const input = await autoComplete(
+              `can_place_on (Current: ${comp_blocksList.length}) - Select a block...`,
+              'Block ID (e.g., stone): ',
+              blocks
+            );
 
-            let input = '';
-            if (AutoComplete && blocks.length > 0) {
-              const ac = new AutoComplete({
-                name: 'blocks',
-                message: `can_place_on (Current: ${comp_blocksList.length}) - Select a block(Choose "mc_cmd_gen_cli:back" to go back)... : `,
-                // choicesのnameは表示用、valueは実際のID
-                choices: [
-                  ...blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
-                  { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
-                ],
-                limit: 10,
-              }) as EnquirerBasePrompt;
-
-              try {
-                const val = await runPrompt(ac);
-                input = String(val).trim(); // valueは正規化されたID（プレフィックスなし）で返される想定
-              } catch {
-                input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
-              }
-            } else {
-              input = await createQuestion(chalk.cyan('Block ID (e.g., stone): '));
-            }
-
-            input = input.trim();
             if (input === '__BACK__') {
               backed = true;
               break; // 内側の入力ループを抜ける
