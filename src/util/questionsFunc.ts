@@ -120,6 +120,50 @@ export async function toggleQuestion(
 }
 
 /**
+ * 選択肢を検索できるSelectプロンプト
+ * @param message 質問のメッセージ
+ * @param fallbackMessage AutoCompleteが利用できない場合の質問のメッセージ
+ * @param choices 選択肢の配列: string[]
+ * @returns 選択された値: string
+ */
+export async function autoComplete(
+  message: string,
+  fallbackMessage: string,
+  choices: string[]
+): Promise<string> {
+  const enquirerModule = Enquirer as EnquirerModule;
+  const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+  let input = '';
+  if (AutoComplete && choices.length > 0) {
+    const ac = new AutoComplete({
+      name: 'choices',
+      message:
+        message +
+        chalk.gray.italic(' (Type to search, or select "mc_cmd_gen_cli:back" to go back)'),
+      choices: [
+        { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
+        ...choices.map((c) => ({ name: c, value: c })),
+      ],
+      limit: 10,
+    }) as EnquirerBasePrompt;
+
+    try {
+      const val = await runPrompt(ac);
+      input = String(val).trim();
+    } catch {
+      input = await createQuestion(chalk.cyan(fallbackMessage));
+    }
+  } else {
+    input = await createQuestion(chalk.cyan(fallbackMessage));
+  }
+
+  input = input.trim();
+
+  return input;
+}
+
+/**
  * フォームプロンプトを表示して複数の入力を受け取る
  * @param message 質問のメッセージ
  * @param choices 選択肢の配列

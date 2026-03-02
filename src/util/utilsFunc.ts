@@ -27,9 +27,8 @@ export async function loadDataLists(fileName: string, constantName: string): Pro
   // ファイルが見つからなかった場合
   console.warn(
     warn,
-    chalk.bgYellow.black(' WARN '),
     chalk.yellow(
-      `${fileName} file not found. Autocomplete and validation for ${fileName} will be disabled.`
+      `Referenced file was not found. Autocomplete and validation for this command will be disabled.`
     )
   );
   return [];

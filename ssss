@@ -1,0 +1,251 @@
+[33mcommit 2a6ca8caead7b231d50e0923db777c0f0b59a21d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mziba/feature/component[m[33m, [m[1;31morigin/dev[m[33m, [m[1;32mziba/chore/rewrite-src[m[33m, [m[1;32mdev[m[33m)[m
+Merge: 0eb0475 64df214
+Author: じば <164349196+zibasan@users.noreply.github.com>
+Date:   Fri Feb 27 13:04:56 2026 +0900
+
+    Merge pull request #25 from zibasan/ziba/chore/rewrite-src
+    
+    Rewrite src more readable
+
+[33mcommit 64df2145273ec5bd9a08473caa88a75ccb74799e[m[33m ([m[1;31morigin/ziba/chore/rewrite-src[m[33m)[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Fri Feb 27 13:01:36 2026 +0900
+
+    Chore: New Function runForm
+
+[33mcommit febb0eaae40caa15fffbf110b7a032c3c25b6975[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Thu Feb 26 22:19:05 2026 +0900
+
+    Add: Closing process(to Ctrl+C) && Chore: Devide functions to another files
+
+[33mcommit 6fada74aca5ea1ef3677387888b48c32409a78b8[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Tue Feb 24 19:52:38 2026 +0900
+
+    Rewriting code more readable
+
+[33mcommit 0eb04757326a0ab65e272c5d7862482dcf37ef27[m
+Merge: a62c6d5 9f18079
+Author: zibasan <164349196+zibasan@users.noreply.github.com>
+Date:   Sun Feb 22 16:44:55 2026 +0900
+
+    Merge pull request #24 from zibasan/ziba/feature/component
+    
+    Ziba/feature/component
+
+[33mcommit 9f180794658a2e4f08c24a1ec5a312412956ff27[m[33m ([m[1;31morigin/ziba/feature/component[m[33m)[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sun Feb 22 16:37:06 2026 +0900
+
+    Add: Adding item component - 2
+
+[33mcommit f1e2f56edab3d1d83e7f483cba710d029fb09a00[m
+Merge: 52cf910 a62c6d5
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sun Feb 22 10:28:32 2026 +0900
+
+    Merge branch 'dev' into ziba/feature/component
+
+[33mcommit 52cf910562b174bd390e051af98afcb0ba463c78[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sun Feb 22 09:17:38 2026 +0900
+
+    Add: Adding item-components - 1 && Adding an arg '--no-slash'
+
+[33mcommit 2fc01ba1c368e52c07a43d27fe48453d33768e68[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 9 22:25:00 2026 +0900
+
+    Add: Adding Item Component Feature - 1
+
+[33mcommit a62c6d5dde685e3e43d1085095f9b6a379ab5018[m
+Author: zibasan <164349196+zibasan@users.noreply.github.com>
+Date:   Sun Feb 8 20:23:03 2026 +0900
+
+    Add: colorcode command (#23)
+
+[33mcommit 1540894d3ca367bd698d2015e8ef82cb5509c58b[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sat Feb 7 15:15:33 2026 +0900
+
+    Fix: Cannot execute 'block' command - 2
+
+[33mcommit 67969c3117e8d8833bee8215a867d54a87f5bd4a[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sat Feb 7 13:05:10 2026 +0900
+
+    Fix: Cannot execute 'block' command
+
+[33mcommit 4b5808b0ac5918e5f84d552288711784d8d344e3[m
+Author: zibasan <164349196+zibasan@users.noreply.github.com>
+Date:   Sat Feb 7 12:34:03 2026 +0900
+
+    Add: Notify Feature (#21)
+    
+    * Add: Send notify when the command copied to clipboard & Add: terminal emojis
+    
+    * Refactor levenshtein function and enhance error checks
+    
+    Refactor initialization of dp array in levenshtein function and improve error handling in selectFromList function.
+    
+    * Fix TypeScript warnings by consolidating enquirer type definitions (#22)
+    
+    * Initial plan
+    
+    * Fix TypeScript warnings in create.ts by adding proper type definitions
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    * Restore pre-commit hook file
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    * Refactor: Extract EnquirerModule type and rename to EnquirerMultiSelectPrompt
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    * Refactor: Rename to EnquirerBasePrompt for better clarity
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    * Refactor: Extract enquirer types to dedicated file
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    * Refactor: Apply shared enquirer types to block.ts
+    
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    ---------
+    
+    Co-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>
+    Co-authored-by: tukuyomil032 <118542180+tukuyomil032@users.noreply.github.com>
+    
+    ---------
+    
+    Co-authored-by: tukuyomi032 <118542180+tukuyomil032@users.noreply.github.com>
+    Co-authored-by: Copilot <198982749+Copilot@users.noreply.github.com>
+
+[33mcommit d0fe77877028369fe8a9d8b07cd0168eb20a976a[m
+Author: tukuyomil032 <yinkom0708@gmail.com>
+Date:   Fri Feb 6 19:03:52 2026 +0900
+
+    fix: ci.yml
+
+[33mcommit 30d79970a477d88940f7cd51adafc29634951749[m
+Author: tukuyomil032 <yinkom0708@gmail.com>
+Date:   Fri Feb 6 18:59:00 2026 +0900
+
+    fix: ci.yml
+
+[33mcommit dc9a61c3de792b58396088edb0cd25291763a558[m
+Author: tukuyomil032 <yinkom0708@gmail.com>
+Date:   Fri Feb 6 18:28:32 2026 +0900
+
+    fix: remove package-lock.json
+
+[33mcommit b790436a027d4e220ada2bf59f34c31f48cc12b7[m
+Author: tukuyomil032 <yinkom0708@gmail.com>
+Date:   Fri Feb 6 18:26:41 2026 +0900
+
+    feat: add code check actions
+
+[33mcommit 0fdc52218e954514ed43370a3843de67d2130a58[m
+Author: tukuyomi032 <118542180+tukuyomil032@users.noreply.github.com>
+Date:   Fri Feb 6 09:20:18 2026 +0900
+
+    Integrate dev and tukuyomi/feature/changes-command-behavior (merge-pr… (#17)
+
+[33mcommit 89e4ec5ed9939ec8cd466108e32e6af50699bcc6[m
+Author: tukuyomi032 <118542180+tukuyomil032@users.noreply.github.com>
+Date:   Thu Feb 5 00:06:13 2026 +0900
+
+    chore: add ignore items
+
+[33mcommit 456c83683f46b699fae5dea8c38b60a5b94c5c4a[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Wed Feb 4 22:14:37 2026 +0900
+
+    Fix: Create Event notify - 4
+
+[33mcommit 39c0d5752a86231f517e7866a7d2baf2fd4be0b0[m
+Merge: 5429e89 c909add
+Author: zibasan <164349196+zibasan@users.noreply.github.com>
+Date:   Wed Feb 4 22:03:17 2026 +0900
+
+    Merge pull request #16 from zibasan/ziba/fix/notify
+    
+    Fix: create event notify
+
+[33mcommit c909add10a84893023acbe6c6625003f73352127[m[33m ([m[1;32mziba/fix/notify[m[33m)[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Wed Feb 4 22:01:20 2026 +0900
+
+    Fix: Create Event Notify - 3
+
+[33mcommit 113e24f887f39eb1d5af1cd1ef6e09cbbaa07888[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Wed Feb 4 21:53:05 2026 +0900
+
+    Fix: Create Event Notify - 2
+
+[33mcommit 1d1abac97d017506d9fa8f1e6a71aa1fe12e8a94[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Wed Feb 4 21:47:40 2026 +0900
+
+    Fix: Create Event Notify
+
+[33mcommit 5429e895160a34d926d56cf1b2fafcc83a23ce7a[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 20:54:46 2026 +0900
+
+    Add: Discord notify feature (completed)
+
+[33mcommit 27f43ef392d1612217c06137b2e1427981ef2b3c[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 18:19:26 2026 +0900
+
+    Adding Commit Link
+
+[33mcommit 9d8f01c735bb3ad78132b79226f894f77f600168[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 17:44:14 2026 +0900
+
+    Fixes commit message display logic
+
+[33mcommit 72ccbffd046f0a4d060650b8c4b58d2a3abbd007[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 17:35:07 2026 +0900
+
+    Add: display commit message to notification
+
+[33mcommit 0d801845333630ecafaef883cd2336125953c88e[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 07:54:21 2026 +0900
+
+    Fix: mention
+
+[33mcommit 7ff5aaabeb74cc8b6713fdcc031e63df24eb342e[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Mon Feb 2 07:38:36 2026 +0900
+
+    Fix: delete TEST text of README.md
+
+[33mcommit 9d032d6a3cece2ebfe0d46e24cb4452f9cd0f386[m
+Merge: 4786d3f ce637f7
+Author: zibasan <164349196+zibasan@users.noreply.github.com>
+Date:   Sun Feb 1 20:29:08 2026 +0900
+
+    Merge pull request #15 from zibasan/ziba/fix/notify-discord
+    
+    Fix: mention
+
+[33mcommit ce637f7bcd70567952896540d8015ca644afd599[m[33m ([m[1;32mziba/fix/notify-discord[m[33m)[m
+Author: zibasan <ZIBA3496@gmail.com>
+Date:   Sun Feb 1 20:27:39 2026 +0900
+
+    Fix: mention - 9
+
+[33mcommit cc50a278c8c8d2a1b1ac75aaa923f6cc63e69cfd[m
+Author: zibasan <ZIB
