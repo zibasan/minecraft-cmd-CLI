@@ -48,3 +48,30 @@ export const TP_COMMAND_DESCRIPTIONS: {
     description: 'Teleport specific targets to a specific location with rotation(facing entity)',
   },
 ];
+
+export const SETBLOCK_OPTIONS_DESCRIPTIONS: {
+  options: string;
+  description: string;
+}[] = [
+  {
+    options: 'destroy',
+    description:
+      'Destroys the original block as if it were destroyed by the player, dropping items',
+  },
+  {
+    options: 'keep',
+    description: 'A new block is placed only if the original block is air',
+  },
+  {
+    options: 'replace',
+    description: '(default) Simply place the new block',
+  },
+  {
+    options: 'strict',
+    description: 'Places the block as is without triggering a block update or geometry update',
+  },
+  {
+    options: 'Skip',
+    description: 'Skip this question and use the default option "replace"',
+  },
+];

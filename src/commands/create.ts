@@ -16,7 +16,7 @@ import {
   fillOutForm,
 } from '../util/questionsFunc.js';
 import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
-import { TP_COMMAND_DESCRIPTIONS } from '../util/utils.js';
+import { SETBLOCK_OPTIONS_DESCRIPTIONS, TP_COMMAND_DESCRIPTIONS } from '../util/utils.js';
 // import figureSet from 'figures';
 
 const { Input } = Enquirer as unknown as EnquirerModule;
@@ -286,15 +286,24 @@ export function createCommand(): Command {
       case 'setblock': {
         let sbPosition = '';
         let sbBlock = '';
+        let selectedSbOption = '';
+        let sbOption = '';
         // Load block list for validation / autocomplete
         const blocks = await loadDataLists('blocks', 'BLOCKS');
-        do {
-          sbPosition = await createQuestion(chalk.cyan('Position (e.g., 0 64 0): '));
-          if (!sbPosition.trim()) {
-            console.log(error, chalk.red('Please enter a position.'));
-            continue;
-          }
 
+        const locResult = await fillOutForm(
+          chalk.cyan('Enter location coordinates (e.g., 0 64 0 or ~ ~ ~).'),
+          [
+            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+          ],
+          false
+        );
+        sbPosition = `${locResult.X} ${locResult.Y} ${locResult.Z}`;
+        console.log(chalk.blue('Position:'), chalk.green(sbPosition), '\n');
+
+        do {
           // For block id, use enquirer AutoComplete for tab completion
           const enquirerModule = Enquirer as EnquirerModule;
           const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
@@ -338,7 +347,28 @@ export function createCommand(): Command {
             continue;
           }
         } while (!sbPosition.trim() || !sbBlock.trim());
-        generatedCommand = `/setblock ${sbPosition} minecraft:${sbBlock.startsWith('minecraft:') ? sbBlock.slice(10) : sbBlock}`;
+
+        const sbOptions = SETBLOCK_OPTIONS_DESCRIPTIONS.map(
+          (d) => `${d.options} - ${d.description}`
+        );
+        // 座標限界：29999983, Y, 29999983
+        while (true) {
+          selectedSbOption = await selectFromList(chalk.cyan('Setblock Option:'), sbOptions);
+          const optionKey = selectedSbOption.split(' - ')[0];
+          if (optionKey === 'Skip') {
+            selectedSbOption = 'Skiped';
+            sbOption = '';
+            break;
+          } else if (optionKey) {
+            selectedSbOption = optionKey;
+            sbOption = selectedSbOption;
+            break;
+          }
+        }
+
+        console.log('\n', chalk.blue('Selected option:'), chalk.green(selectedSbOption));
+
+        generatedCommand = `/setblock ${sbPosition} minecraft:${sbBlock.startsWith('minecraft:') ? sbBlock.slice(10) : sbBlock} ${sbOption}`;
         break;
       }
       case 'fill': {

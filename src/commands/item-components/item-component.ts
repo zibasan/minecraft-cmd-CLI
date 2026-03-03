@@ -198,107 +198,125 @@ export async function addItemComponentsQuestion(): Promise<string> {
         let addMoreEnchantments = true;
 
         const enchantments = await loadDataLists('enchantments', 'ENCHANTMENTS');
-        let enchantments_name = '';
 
+        // 複数のエンチャントを追加するための大枠のループ
         while (addMoreEnchantments) {
-          // 1. エンチャント名を入力
+          let enchantments_name = '';
+          let nameBacked = false;
+
+          // 1. エンチャント名を入力するループ
           while (true) {
-            do {
-              enchantments_name = await autoComplete(
-                chalk.cyan(
-                  'Enchantment name (e.g., minecraft:sharpness). Choose "back" to go back: '
-                ),
-                chalk.cyan(
-                  'Enchantment name (e.g., minecraft:sharpness). Type "back" to go back: '
-                ),
-                enchantments
-              );
+            enchantments_name = await autoComplete(
+              chalk.cyan(
+                'Enchantment name (e.g., minecraft:sharpness). Choose "back" to go back: '
+              ),
+              chalk.cyan('Enchantment name (e.g., minecraft:sharpness). Type "back" to go back: '),
+              enchantments
+            );
 
-              if (enchantments_name.trim().toLowerCase() === '__BACK__') {
-                console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
-                console.log('\n');
-                break;
-              }
+            // キャンセル判定
+            if (
+              enchantments_name.trim() === '__BACK__' ||
+              enchantments_name.trim().toLowerCase() === 'back'
+            ) {
+              nameBacked = true;
+              break; // 名前入力ループを抜ける
+            }
 
-              // Normalize enchantments id: allow with or without minecraft: prefix
-              const normalized = enchantments_name.startsWith('minecraft:')
-                ? enchantments_name.slice(10)
-                : enchantments_name;
-              const exists = enchantments.includes(normalized);
-              if (!enchantments_name.trim()) {
-                console.log(error, chalk.red('Please enter enchantments name.'));
-                continue;
-              }
-              if (!exists) {
-                const suggestions = suggestSimilar(normalized, enchantments).map(
-                  (s) => `minecraft:${s}`
-                );
-                console.log(chalk.red(`Enchantments "${enchantments_name}" not found.`));
-                if (suggestions.length > 0) {
-                  console.log(chalk.yellow('Did you mean:'));
-                  suggestions.forEach((s) => console.log(`  - ${s}`));
-                }
-                console.log(
-                  error,
-                  chalk.cyan('Please enter a valid enchantments name (try Tab to autocomplete).')
-                );
-                enchantments_name = '';
-                continue;
-              }
-            } while (!enchantments_name.trim());
+            // Normalize enchantments id: allow with or without minecraft: prefix
+            const normalized = enchantments_name.startsWith('minecraft:')
+              ? enchantments_name.slice(10)
+              : enchantments_name;
+            const exists = enchantments.includes(normalized);
 
-            // 2. エンチャントレベルを入力（1~255）
-            let validLevel = false;
-            while (!validLevel) {
-              const enchantmentLevel = await createQuestion(
-                chalk.cyan(
-                  `Enchantment(${enchantments_name}) level(1~255) Type "back" to go back: `
-                )
-              );
-              if (enchantmentLevel.trim().toLowerCase() === 'back') {
-                console.log(warn, chalk.yellow(' Cancelled. Back to enchantments selection.'));
-                console.log('\n');
-                break;
-              }
-              if (!enchantmentLevel.trim()) {
-                console.log(error, chalk.red(' Please enter an enchantment level.'));
-                continue;
-              }
-              const levelNum = parseInt(enchantmentLevel.trim(), 10);
-              if (isNaN(levelNum) || levelNum < 1 || levelNum > 255) {
-                console.log(error, chalk.red(' Please enter a valid enchantment level(1~255).'));
-                continue;
-              }
+            if (!enchantments_name.trim()) {
+              console.log(error, chalk.red('Please enter enchantments name.'));
+              continue;
+            }
+            if (!exists) {
+              const suggestions = suggestSimilar(normalized, enchantments)
+                .filter((s) => s !== '__BACK__')
+                .map((s) => `minecraft:${s}`);
 
-              // エンチャントを追加
-              comp_enchantmentsList.push(`${enchantments_name}:${levelNum}`);
+              console.log(chalk.red(`Enchantments "${enchantments_name}" not found.`));
+              if (suggestions.length > 0) {
+                console.log(chalk.yellow('Did you mean:'));
+                suggestions.forEach((s) => console.log(`  - ${s}`));
+              }
               console.log(
-                chalk.blue(`Enchantment: `),
-                `${chalk.green.bold(`${enchantments_name}:${levelNum}`)}`
+                error,
+                chalk.cyan('Please enter a valid enchantments name (try Tab to autocomplete).')
               );
-              console.log('\n');
-
-              // 3. "他の"エンチャントを追加するかどうか選択
-              const addMoreResult = await toggleQuestion(chalk.cyan('Add another enchantment?'));
-
-              if (addMoreResult === false) {
-                addMoreEnchantments = false;
-              } else {
-                console.log(
-                  `${chalk.blue('Add More Enchantments:')} ${chalk.green(`${chalk.bold('Yes')}`)}`
-                );
-              }
-
-              validLevel = true;
-              break;
+              continue;
             }
 
-            if (!addMoreEnchantments) {
-              break; // 外側の名前入力ループを抜ける
+            // 正しいエンチャントが入力されたら名前入力ループを抜ける
+            break;
+          }
+
+          // ★ 名前入力で「戻る」が選ばれた場合、エンチャント追加ループ自体を終了し、コンポーネント選択へ戻る
+          if (nameBacked) {
+            console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+            console.log('\n');
+            break;
+          }
+
+          // 2. エンチャントレベルを入力するループ（1~255）
+          let levelBacked = false;
+          while (true) {
+            const enchantmentLevel = await createQuestion(
+              chalk.cyan(`Enchantment(${enchantments_name}) level(1~255) Type "back" to go back: `)
+            );
+
+            // キャンセル判定
+            if (
+              enchantmentLevel.trim() === '__BACK__' ||
+              enchantmentLevel.trim().toLowerCase() === 'back'
+            ) {
+              levelBacked = true;
+              break; // レベル入力ループを抜ける
             }
+
+            if (!enchantmentLevel.trim()) {
+              console.log(error, chalk.red(' Please enter an enchantment level.'));
+              continue;
+            }
+            const levelNum = parseInt(enchantmentLevel.trim(), 10);
+            if (isNaN(levelNum) || levelNum < 1 || levelNum > 255) {
+              console.log(error, chalk.red(' Please enter a valid enchantment level(1~255).'));
+              continue;
+            }
+
+            // 正しいレベルが入力されたら、リストに追加してループを抜ける
+            comp_enchantmentsList.push(`${enchantments_name}:${levelNum}`);
+            console.log(
+              chalk.blue(`Enchantment: `),
+              `${chalk.green.bold(`${enchantments_name}:${levelNum}`)}`
+            );
+            console.log('\n');
+            break;
+          }
+
+          // ★ レベル入力で「戻る」が選ばれた場合、名前入力（ループの先頭）に戻る
+          if (levelBacked) {
+            console.log(warn, chalk.yellow(' Cancelled. Back to enchantments selection.'));
+            console.log('\n');
+            continue; // while (addMoreEnchantments) の先頭へ戻る
+          }
+
+          // 3. "他の"エンチャントを追加するかどうか選択
+          const addMoreResult = await toggleQuestion(chalk.cyan('Add another enchantment?'));
+
+          if (addMoreResult === false) {
+            addMoreEnchantments = false;
+          } else {
+            console.log(
+              `${chalk.blue('Add More Enchantments:')} ${chalk.green(`${chalk.bold('Yes')}`)}`
+            );
           }
         }
 
+        // 全ての入力が終わり、1つでもエンチャントが追加されていればコンポーネントを生成
         if (comp_enchantmentsList.length > 0) {
           const enchantmentsArray = '{' + comp_enchantmentsList.map((e) => `${e}`).join(', ') + '}';
           addedComponents.push(`enchantments=${enchantmentsArray}`);
