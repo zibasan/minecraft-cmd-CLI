@@ -170,6 +170,8 @@ export async function autoComplete(
  * * @param choices.name 名前
  * * @param choices.message メッセージ
  * * @param choices.initial 初期値（オプション）
+ * @param choices.type 入力の種類（'string' | 'number' | 'boolean' | 'string | number' | 'number | ~' | 'number | ~ | ^'）
+ * @param allowCancel フォームのキャンセルを許可するかどうか（デフォルト: true）。trueの場合、ユーザーがフォームをキャンセルしたときに'__BACK__'を返す。
  * @returns 選択された値: Promise<any> - オブジェクトで返す / キャンセル時には'__BACK__'を返す
  */
 export async function fillOutForm(
@@ -179,7 +181,8 @@ export async function fillOutForm(
     message: string;
     type: 'string' | 'number' | 'boolean' | 'string | number' | 'number | ~' | 'number | ~ | ^';
     initial?: string;
-  }[]
+  }[],
+  allowCancel: boolean = true
 ): Promise<any> {
   if (!Form) {
     throw new Error('enquirer Form not available');
@@ -244,5 +247,5 @@ export async function fillOutForm(
     },
   }) as EnquirerBasePrompt;
 
-  return await runForm(prompt, true);
+  return await runForm(prompt, allowCancel);
 }

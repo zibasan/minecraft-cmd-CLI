@@ -171,7 +171,8 @@ export function createCommand(): Command {
               { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
               { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
               { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
-            ]
+            ],
+            false
           );
           location = `${locResult.X} ${locResult.Y} ${locResult.Z}`;
           console.log(chalk.blue(`<location>:`), `${chalk.green(`${chalk.bold(location)}`)}\n`);
@@ -200,7 +201,8 @@ export function createCommand(): Command {
                 initial: '0',
                 type: 'number | ~',
               },
-            ]
+            ],
+            false
           );
           rotation = `${rotResult['yaw']} ${rotResult['pitch']}`;
           console.log(chalk.blue(`<rotation>:`), `${chalk.green(`${chalk.bold(rotation)}`)}\n`);
@@ -218,7 +220,8 @@ export function createCommand(): Command {
               { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
               { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
               { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
-            ]
+            ],
+            false
           );
           facingLocation = `${faceLocResult.X} ${faceLocResult.Y} ${faceLocResult.Z}`;
           console.log(
