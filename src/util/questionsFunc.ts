@@ -177,7 +177,7 @@ export async function fillOutForm(
   choices: {
     name: string;
     message: string;
-    type: 'string' | 'number' | 'boolean';
+    type: 'string' | 'number' | 'boolean' | 'string | number' | 'number | ~' | 'number | ~ | ^';
     initial?: string;
   }[]
 ): Promise<any> {
@@ -212,6 +212,31 @@ export async function fillOutForm(
           const lowered = input.toLowerCase();
           if (lowered !== 'true' && lowered !== 'false') {
             return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be "true" or "false".`)}`;
+          }
+        }
+
+        if (choice.type === 'string | number') {
+          // 数字（整数・小数）または文字列以外を拒否
+          if (isNaN(Number(input)) && typeof input !== 'string') {
+            return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number or a string.`)}`;
+          }
+        }
+
+        if (choice.type === 'number | ~ | ^') {
+          // 数字（整数・小数）、または ~ / ^ から始まる数字を許可する正規表現
+          // 例: 5, -3, 0.5, ~, ~5, ~-2.5, ^, ^2
+          const isValidLocation = /^(~|\^)?-?\d*(\.\d+)?$/.test(input);
+          if (!isValidLocation) {
+            return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number, or start with "~" or "^".`)}`;
+          }
+        }
+
+        if (choice.type === 'number | ~') {
+          // 数字（整数・小数）、または ~ / ^ から始まる数字を許可する正規表現
+          // 例: 5, -3, 0.5, ~, ~5, ~-2.5, ^, ^2
+          const isValidLocation = /^(~|-?\d+(\.\d+)?|~-?\d+(\.\d+)?)$/.test(input);
+          if (!isValidLocation) {
+            return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number, or start with "~" or "^".`)}`;
           }
         }
       }

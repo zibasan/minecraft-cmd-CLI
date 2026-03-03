@@ -13,8 +13,10 @@ import {
   selectFromList,
   toggleQuestion,
   runPrompt,
+  fillOutForm,
 } from '../util/questionsFunc.js';
 import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
+import { TP_COMMAND_DESCRIPTIONS } from '../util/utils.js';
 // import figureSet from 'figures';
 
 const { Input } = Enquirer as unknown as EnquirerModule;
@@ -119,29 +121,163 @@ export function createCommand(): Command {
         break;
       }
       case 'teleport': {
+        // 1. 形式の選択
+        const tpOptions = TP_COMMAND_DESCRIPTIONS.map((d) => `${d.cmd} - ${d.description}`);
+        // 座標限界：29999983, Y, 29999983
+        const selectedTpOption = await selectFromList(
+          chalk.cyan('Teleport Command type:'),
+          tpOptions
+        );
+
+        // 番号を取り出す
+        const tpTypeStr = selectedTpOption.split('.')[0];
+        console.log(chalk.blue('Selected teleport type:'), chalk.green(selectedTpOption));
+
+        // 使う変数を初期化
+        let targets = '';
         let destination = '';
-        do {
-          destination = await createQuestion(
-            chalk.cyan('Destination player/entity or coordinates (e.g., @p or 0 64 0): ')
+        let location = '';
+        let rotation = '';
+        let facingLocation = '';
+        let facingEntity = '';
+        let facingAnchor = '';
+
+        // 必要な要素を順番に聞く
+
+        if (['2', '4', '5', '6', '7'].includes(tpTypeStr)) {
+          console.log(chalk.gray.italic('<targets> - Specify the entity to teleport'));
+          targets = await addSelectorsQuestion();
+          console.log(chalk.blue(`<targets>:`), `${chalk.green(`${chalk.bold(targets)}`)}\n`);
+        }
+
+        if (['1', '2'].includes(tpTypeStr)) {
+          console.log(chalk.gray.italic('<destination> - Specifies the entity to teleport to'));
+          destination = await addSelectorsQuestion();
+          console.log(
+            chalk.blue(`<destination>:`),
+            `${chalk.green(`${chalk.bold(destination)}`)}\n`
           );
-          if (!destination.trim()) {
-            console.log(error, chalk.red('Please enter a destination.'));
-            continue;
-          }
-          // allow selector like @p or coordinates
-          const isSelector = destination.trim().startsWith('@');
-          const isCoords = isValidPosition(destination.trim());
-          if (!isSelector && !isCoords) {
+        }
+
+        if (['3', '4', '5', '6', '7'].includes(tpTypeStr)) {
+          console.log(
+            chalk.gray.italic(
+              '<location> - Specifies the location(e.g., ~ ~ ~, 29 63 -48) to teleport to'
+            )
+          );
+          const locResult = await fillOutForm(
+            chalk.cyan('Enter location coordinates (e.g., 0 64 0 or ~ ~ ~).'),
+            [
+              { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+              { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+              { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+            ]
+          );
+          location = `${locResult.X} ${locResult.Y} ${locResult.Z}`;
+          console.log(chalk.blue(`<location>:`), `${chalk.green(`${chalk.bold(location)}`)}\n`);
+        }
+
+        if (tpTypeStr === '5') {
+          console.log(
+            chalk.gray.italic(
+              '<rotation> - Specify the direction(e.g., ~ ~, 90 0) after teleportation'
+            )
+          );
+          const rotResult = await fillOutForm(
+            chalk.cyan(
+              'Enter the direction... (Horizontal rotation (yaw) and vertical rotation (pitch))'
+            ),
+            [
+              {
+                name: 'yaw',
+                message: 'horizontal rotation',
+                initial: '90',
+                type: 'number | ~',
+              },
+              {
+                name: 'pitch',
+                message: 'vertical rotation',
+                initial: '0',
+                type: 'number | ~',
+              },
+            ]
+          );
+          rotation = `${rotResult['yaw']} ${rotResult['pitch']}`;
+          console.log(chalk.blue(`<rotation>:`), `${chalk.green(`${chalk.bold(rotation)}`)}\n`);
+        }
+
+        if (tpTypeStr === '6') {
+          console.log(
+            chalk.gray.italic(
+              '<facingLocation> - Specifies the coordinates(e.g., ~ ~ ~, 29 63 -48) the entity will face after teleporting'
+            )
+          );
+          const faceLocResult = await fillOutForm(
+            chalk.cyan('Enter facing location coordinates...'),
+            [
+              { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+              { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+              { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+            ]
+          );
+          facingLocation = `${faceLocResult.X} ${faceLocResult.Y} ${faceLocResult.Z}`;
+          console.log(
+            chalk.blue(`<facingLocation>:`),
+            `${chalk.green(`${chalk.bold(facingLocation)}`)}\n`
+          );
+        }
+
+        if (tpTypeStr === '7') {
+          console.log(
+            chalk.gray.italic(
+              '<facingEntity> - Specifies the entity the entity will face after teleporting'
+            )
+          );
+          facingEntity = await addSelectorsQuestion();
+          console.log(
+            chalk.blue(`<facingEntity>:`),
+            `${chalk.green(`${chalk.bold(facingEntity)}`)}\n`
+          );
+
+          const anchorChoice = await selectFromList(chalk.cyan('Facing Anchor (optional):'), [
+            'eyes',
+            'feet',
+            'skip (do not specify anchor)',
+          ]);
+
+          if (!anchorChoice.startsWith('skip')) {
+            facingAnchor = anchorChoice;
             console.log(
-              error,
-              chalk.red(
-                'Destination must be a selector (e.g., @p) or three coordinates (e.g., 0 64 0).'
-              )
+              chalk.blue(`Facing Anchor:`),
+              `${chalk.green(`${chalk.bold(facingAnchor)}`)}\n`
             );
-            destination = '';
           }
-        } while (!destination.trim());
-        generatedCommand = `/teleport ${destination}`;
+        }
+
+        // --- 3. 最後に選ばれたパターンに合わせてコマンドを組み立てる ---
+        switch (tpTypeStr) {
+          case '1':
+            generatedCommand = `/teleport ${destination}`;
+            break;
+          case '2':
+            generatedCommand = `/teleport ${targets} ${destination}`;
+            break;
+          case '3':
+            generatedCommand = `/teleport ${location}`;
+            break;
+          case '4':
+            generatedCommand = `/teleport ${targets} ${location}`;
+            break;
+          case '5':
+            generatedCommand = `/teleport ${targets} ${location} ${rotation}`;
+            break;
+          case '6':
+            generatedCommand = `/teleport ${targets} ${location} facing ${facingLocation}`;
+            break;
+          case '7':
+            generatedCommand = `/teleport ${targets} ${location} facing entity ${facingEntity}${facingAnchor ? ` ${facingAnchor}` : ''}`;
+            break;
+        }
         break;
       }
       case 'setblock': {
