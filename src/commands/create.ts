@@ -4,19 +4,18 @@ import clipboard from 'clipboardy';
 import ora from 'ora';
 import Enquirer from 'enquirer';
 import { sendNotify } from '../features/notifier.js';
-import { addSelectorsQuestion } from './selectors/selectors.js';
-import { addItemComponentsQuestion } from './item-components/item-component.js';
+import { addSelectorsQuestion } from '../features/selectors/selector.js';
 import { info, success, warn, error } from '../util/symbols.js';
 import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
+import { createQuestion, selectFromList, runPrompt, fillOutForm } from '../util/questionsFunc.js';
+import { loadDataLists, suggestSimilar } from '../util/utilsFunc.js';
 import {
-  createQuestion,
-  selectFromList,
-  toggleQuestion,
-  runPrompt,
-  fillOutForm,
-} from '../util/questionsFunc.js';
-import { loadDataLists, suggestSimilar, isValidPosition } from '../util/utilsFunc.js';
-import { SETBLOCK_OPTIONS_DESCRIPTIONS, TP_COMMAND_DESCRIPTIONS } from '../util/utils.js';
+  ITEM_COMMANDS_DESCRIPTIONS,
+  SETBLOCK_OPTIONS_DESCRIPTIONS,
+  TP_COMMAND_DESCRIPTIONS,
+} from '../util/utils.js';
+import { getSlot } from '../features/slots/slot.js';
+import { selectItem } from '../features/items/item-select.js';
 // import figureSet from 'figures';
 
 const { Input } = Enquirer as unknown as EnquirerModule;
@@ -50,7 +49,19 @@ export function createCommand(): Command {
       console.log(`${info} ${chalk.yellow.bold('Slash("/") will not be add to the command')}`);
     }
 
-    const supportedTypes = ['give', 'teleport', 'setblock', 'fill', 'say', 'execute'];
+    const supportedTypes = [
+      'give',
+      'teleport',
+      'setblock',
+      'fill',
+      'say',
+      'execute',
+      'item',
+      'effect',
+      'summon',
+      'enchant',
+      'xp',
+    ];
 
     // Q1: Select command type
     const commandType = await selectFromList('Select a command type:', supportedTypes);
@@ -68,56 +79,9 @@ export function createCommand(): Command {
         selector = await addSelectorsQuestion();
         console.log(chalk.blue(`Target selector:`), `${chalk.green(`${chalk.bold(selector)}`)}`);
 
-        // Q3: Enter item name (repeat until valid)
-        let itemName = '';
-        do {
-          itemName = await createQuestion(chalk.cyan('Item name (e.g., diamond): '));
-          if (!itemName.trim()) {
-            console.log(error, chalk.red('Please enter an item name.'));
-          }
-        } while (!itemName.trim());
-        console.log(chalk.blue(`Item name:`), `${chalk.green(`${chalk.bold(itemName)}`)}`);
-        console.log('\n');
+        const item = await selectItem();
 
-        // Q3.5: Ask to add additional component
-        const addComponentSelector = await toggleQuestion(chalk.cyan('Add item component(s)?: '));
-        const shouldAdd = addComponentSelector === true;
-        let addComponents: string = '';
-        if (shouldAdd) {
-          addComponents = await addItemComponentsQuestion();
-        } else {
-          console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('No')}`)}`);
-        }
-
-        const addedComponentsTF: boolean = addComponents ? true : false;
-
-        let item: string;
-
-        if (addedComponentsTF) {
-          item = `${itemName}[${addComponents}]`;
-        } else {
-          item = `${itemName}`;
-        }
-
-        // Q4: Amount
-        let amount = '';
-        do {
-          amount = await createQuestion(
-            chalk.cyan("Item amount(How many? If empty, it'll set 1.): ")
-          );
-          if (!amount.trim()) {
-            amount = '1';
-            break;
-          }
-          if (!/^[0-9]+$/.test(amount.trim())) {
-            console.log(error, chalk.red('Amount must be a positive integer.'));
-            amount = '';
-          }
-        } while (!amount.trim());
-        console.log(chalk.blue(`Item amount:`), `${chalk.green(`${chalk.bold(amount)}`)}`);
-        console.log('\n');
-
-        generatedCommand = `/give ${selector} ${item} ${amount}`;
+        generatedCommand = `/give ${selector} ${item}`;
         break;
       }
       case 'teleport': {
@@ -377,25 +341,35 @@ export function createCommand(): Command {
         let fillBlock = '';
         // load blocks for autocomplete
         const fillBlocks = await loadDataLists('blocks', 'BLOCKS');
+        const locResult1 = await fillOutForm(
+          chalk.cyan(
+            'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify as the starting point...'
+          ),
+          [
+            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+          ],
+          false
+        );
+        fillFrom = `${locResult1.X} ${locResult1.Y} ${locResult1.Z}`;
+        console.log(chalk.blue('Position:'), chalk.green(fillFrom), '\n');
+
+        const locResult2 = await fillOutForm(
+          chalk.cyan(
+            'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify as the ending point...'
+          ),
+          [
+            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+          ],
+          false
+        );
+        fillTo = `${locResult2.X} ${locResult2.Y} ${locResult2.Z}`;
+        console.log(chalk.blue('Position:'), chalk.green(fillTo), '\n');
+
         do {
-          fillFrom = await createQuestion(chalk.cyan('From position (e.g., 0 64 0): '));
-          if (!isValidPosition(fillFrom)) {
-            console.log(
-              error,
-              chalk.red('From position must be three coordinates (e.g., 0 64 0) or use ~ notation.')
-            );
-            fillFrom = '';
-            continue;
-          }
-          fillTo = await createQuestion(chalk.cyan('To position (e.g., 10 64 10): '));
-          if (!isValidPosition(fillTo)) {
-            console.log(
-              error,
-              chalk.red('To position must be three coordinates (e.g., 10 64 10) or use ~ notation.')
-            );
-            fillTo = '';
-            continue;
-          }
           if (fillBlocks.length > 0) {
             const enquirerModule = Enquirer as EnquirerModule;
             const AutoComplete =
@@ -441,7 +415,7 @@ export function createCommand(): Command {
             fillBlock = '';
             continue;
           }
-        } while (!fillFrom.trim() || !fillTo.trim() || !fillBlock.trim());
+        } while (!fillBlock.trim());
         // ensure final output includes minecraft: prefix
         const outBlock = fillBlock.startsWith('minecraft:') ? fillBlock : `minecraft:${fillBlock}`;
         generatedCommand = `/fill ${fillFrom} ${fillTo} ${outBlock}`;
@@ -456,6 +430,7 @@ export function createCommand(): Command {
         generatedCommand = `/say ${message}`;
         break;
       }
+      // TODO: executeのコマンドをより細かく指定できるようにする
       case 'execute': {
         let execTarget = '';
         let execCommand = '';
@@ -466,6 +441,100 @@ export function createCommand(): Command {
             console.log(error, chalk.red('Please enter target and command.'));
         } while (!execTarget.trim() || !execCommand.trim());
         generatedCommand = `/execute as ${execTarget} at @s run ${execCommand}`;
+        break;
+      }
+
+      case 'item': {
+        console.log(
+          warn,
+          chalk.yellow(
+            'The "item" command generator is only supporting "replace" subcommand. Sorry!'
+          )
+        );
+        const targets = ['block', 'entity'];
+        const replaceTarget = await selectFromList(chalk.cyan('Replace target:'), targets);
+
+        let targetOptionResult = '';
+
+        switch (replaceTarget) {
+          case 'block': {
+            let blockPos = '';
+            const posResult = await fillOutForm(
+              chalk.cyan(
+                'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify target block...'
+              ),
+              [
+                { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+                { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+                { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+              ],
+              false
+            );
+            blockPos = `${posResult.X} ${posResult.Y} ${posResult.Z}`;
+            console.log(chalk.blue('Position:'), chalk.green.bold(blockPos), '\n');
+            targetOptionResult = `block ${blockPos}`;
+            break;
+          }
+
+          case 'entity': {
+            const targetEntity = await addSelectorsQuestion();
+            targetOptionResult = `entity ${targetEntity}`;
+            break;
+          }
+        }
+
+        const slot = await getSlot();
+        console.log(chalk.blue(`Selected Slot:`), chalk.green.bold(slot), '\n');
+
+        const itemCommandOption = ITEM_COMMANDS_DESCRIPTIONS.map(
+          (d) => `${d.options} - ${d.description}`
+        );
+        const selectedItemOption = await selectFromList(
+          chalk.cyan('Item Command Option:'),
+          itemCommandOption
+        );
+        console.log(chalk.blue('Selected option:'), chalk.green(selectedItemOption), '\n');
+        const itemOptionKey = selectedItemOption.split(' - ')[0];
+
+        if (itemOptionKey === 'with') {
+          const item = await selectItem();
+          generatedCommand = `/item replace ${targetOptionResult} ${slot} with ${item}`;
+        }
+        if (itemOptionKey === 'from') {
+          const sourceTarget = await selectFromList(chalk.cyan('Source target:'), targets);
+
+          let sourceTargetOptionResult = '';
+
+          switch (sourceTarget) {
+            case 'block': {
+              let blockPos = '';
+              const posResult = await fillOutForm(
+                chalk.cyan(
+                  'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify target block...'
+                ),
+                [
+                  { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
+                  { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
+                  { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+                ],
+                false
+              );
+              blockPos = `${posResult.X} ${posResult.Y} ${posResult.Z}`;
+              sourceTargetOptionResult = `block ${blockPos}`;
+              break;
+            }
+
+            case 'entity': {
+              const targetEntity = await addSelectorsQuestion();
+              sourceTargetOptionResult = `entity ${targetEntity}`;
+              break;
+            }
+          }
+          const sourceTargetSlot = await getSlot();
+
+          generatedCommand = `/item replace ${targetOptionResult} ${slot} from ${sourceTargetOptionResult} ${sourceTargetSlot}`;
+        }
+
         break;
       }
 

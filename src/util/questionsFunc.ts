@@ -167,7 +167,7 @@ export async function autoComplete(
  * フォームプロンプトを表示して複数の入力を受け取る
  * @param message 質問のメッセージ
  * @param choices 選択肢の配列
- * * @param choices.name 名前
+ * * @param choices.name 入力項目の名前（後で結果をオブジェクトで受け取るときのキーになる）
  * * @param choices.message メッセージ
  * * @param choices.initial 初期値（オプション）
  * @param choices.type 入力の種類（'string' | 'number' | 'boolean' | 'string | number' | 'number | ~' | 'number | ~ | ^'）

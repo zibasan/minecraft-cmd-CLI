@@ -75,3 +75,108 @@ export const SETBLOCK_OPTIONS_DESCRIPTIONS: {
     description: 'Skip this question and use the default option "replace"',
   },
 ];
+
+type Slot = {
+  slot: string; // スロットのキー名
+  description: string; // そのスロットの説明
+};
+
+type DependentInfo =
+  | { hasSlotNumber: true; slotNumberRange: string } // スロット番号が必要かどうかと、その範囲（例: "0-26"）
+  | { hasSlotNumber: false; slotNumberRange?: never }; // スロット番号が不要な場合
+
+type SlotDesc = Slot & DependentInfo;
+
+export const SLOTS_DESCRIPTIONS: SlotDesc[] = [
+  {
+    slot: 'contents',
+    description:
+      'An entity that has only one item slot; item, item_frame etc (This option isn\'t available when targeting "block").',
+    hasSlotNumber: false,
+  },
+  {
+    slot: 'container',
+    description:
+      'A block that has multiple item slots; chest, hopper etc (This option isn\'t available when targeting "entity").',
+    hasSlotNumber: true,
+    slotNumberRange: '0-53',
+  },
+  {
+    slot: 'hotbar',
+    description:
+      'Player inventory hotbar slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-8',
+  },
+  {
+    slot: 'inventory',
+    description:
+      'Player inventory slots (excluding hotbar) (This option isn\'t available when targeting "block")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-26',
+  },
+  {
+    slot: 'enderchest',
+    description: 'Ender chest slots (This option isn\'t available when targeting "entity")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-26',
+  },
+  {
+    slot: 'villager',
+    description: 'Villager trading slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-7',
+  },
+  {
+    slot: 'player.crafting',
+    description: 'Player crafting grid slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-3',
+  },
+  {
+    slot: 'horse',
+    description: 'Horse inventory slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: true,
+    slotNumberRange: '0-14',
+  },
+  {
+    slot: 'weapon',
+    description: 'Player weapon slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: false,
+  },
+  {
+    slot: 'armor',
+    description: 'Player armor slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: false,
+  },
+  {
+    slot: 'saddle',
+    description: 'Saddle slot (This option isn\'t available when targeting "block")',
+    hasSlotNumber: false,
+  },
+  {
+    slot: 'horse.chest',
+    description: 'Horse chest slots (This option isn\'t available when targeting "block")',
+    hasSlotNumber: false,
+  },
+  {
+    slot: 'player.cursor',
+    description:
+      'The item the cursor is holding (This option isn\'t available when targeting "block")',
+    hasSlotNumber: false,
+  },
+];
+
+export const ITEM_COMMANDS_DESCRIPTIONS: {
+  options: string;
+  description: string;
+}[] = [
+  {
+    options: 'with',
+    description: 'Replaces the item in the specified slot with the specified item',
+  },
+  {
+    options: 'from',
+    description: 'Copies the item from the specified slot to the target slot',
+  },
+];
