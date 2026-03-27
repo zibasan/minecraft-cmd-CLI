@@ -1,8 +1,8 @@
-import notifier from 'node-notifier';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import ora from 'ora';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
+import notifier from 'node-notifier';
+import ora from 'ora';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

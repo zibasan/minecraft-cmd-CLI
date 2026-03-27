@@ -1,22 +1,101 @@
 import chalk from 'chalk';
+import ora from 'ora';
 import { createQuestion, selectFromList, toggleQuestion } from '../../util/questionsFunc.js';
+import { error, warn } from '../../util/symbols.js';
 
 let addSelectors: string = '';
 let selector: string = '';
 
 export async function addSelectorsQuestion(): Promise<string> {
-  // Choose Target
-  const target = [
-    '@p - Near Player',
-    '@a - All Player',
-    '@s - Myself',
-    '@r - Random Player',
-    "@n - A Nearest Player (1.21+, same '@p[sort=nearest, limit=1]')",
-  ];
-  const targetType = (await selectFromList('Select a target selector type:', target)).split(' ')[0];
+  let targetType: string = '';
+  while (true) {
+    // Choose Target
+    const target = [
+      '@p - Near Player',
+      '@a - All Player',
+      '@s - Myself',
+      '@r - Random Player',
+      "@n - A Nearest Player (1.21+, same '@p[sort=nearest, limit=1]')",
+      'PlayerName',
+    ];
+    targetType = (await selectFromList('Select a target selector type:', target)).split(' ')[0];
 
+    if (targetType === 'PlayerName') {
+      while (true) {
+        const playerName = await createQuestion(
+          chalk.cyan('Enter the player name. Type "back" to go back.\n') +
+            chalk.italic.gray(
+              'Note: When it is entered, the existence of the player name will be checked in Mojang API.\nIf you skip this check, please add "!" at the beginning of the player name.\n'
+            )
+        );
+        if (!playerName.trim()) {
+          console.log(error, chalk.red('Please enter a player name.'));
+          continue;
+        }
+        if (playerName.trim().toLowerCase() === 'back') {
+          console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
+          console.log('\n');
+          targetType = 'backed';
+          break;
+        }
+        targetType = playerName.trim();
+
+        if (!targetType.startsWith('!')) {
+          // ===== 追加: Mojang API で存在確認 =====
+          const spinner = ora('Checking player existence...').start();
+          try {
+            const response = await fetch(
+              `https://api.mojang.com/users/profiles/minecraft/${targetType}`
+            );
+            if (response.status === 404 || response.status === 204) {
+              spinner.warn(
+                chalk.bgYellow.black(' WARN ') +
+                  chalk.yellow(` Player "${targetType}" does not exist in Mojang database.`)
+              );
+              const proceed = await toggleQuestion(chalk.cyan('Use this name anyway?'));
+              if (!proceed) {
+                continue; // もう一度入力をやり直す
+              }
+            } else if (response.ok) {
+              spinner.succeed(
+                chalk.green(
+                  `Player "${targetType}" is existed in Mojang database! Using this name.`
+                )
+              );
+            } else {
+              spinner.stop(); // レート制限(429)などの場合はスルー
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (_e) {
+            spinner.stop(); // ネットワークエラー等もとりあえずスルー
+          }
+          // =======================================
+        }
+        if (targetType.startsWith('!')) {
+          targetType = targetType.slice(1); // 先頭の'!'を削除してプレイヤー名として使用
+        }
+
+        break;
+      }
+    }
+
+    if (targetType === 'backed') {
+      continue;
+    }
+
+    break;
+  }
   console.log(chalk.blue(`Target:`), `${chalk.green(`${chalk.bold(targetType)}`)}`);
   console.log('\n');
+
+  if (!targetType.startsWith('@')) {
+    console.log(
+      `${chalk.blue('Additional target selectors:')} ${chalk.green(`${chalk.bold('Skipped (Specific Player Name)')}`)}`
+    );
+    console.log('\n');
+    return targetType;
+  }
 
   // Q2.5: Ask to refine target selector
   const refineSelector = await toggleQuestion(
@@ -30,7 +109,9 @@ export async function addSelectorsQuestion(): Promise<string> {
   const shouldRefine = refineSelector === true;
 
   if (shouldRefine) {
-    console.log(`${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('Yes')}`)}`);
+    console.log(
+      `${chalk.blue('Additional target selectors:')} ${chalk.green(`${chalk.bold('Yes')}`)}`
+    );
 
     const addedSelectors: string[] = [];
     const allSelectorTypes = [
@@ -330,11 +411,13 @@ export async function addSelectorsQuestion(): Promise<string> {
     );
     console.log('\n');
   } else {
-    console.log(`${chalk.blue('Further target selector:')} ${chalk.green(`${chalk.bold('No')}`)}`);
+    console.log(
+      `${chalk.blue('Additional target selectors:')} ${chalk.green(`${chalk.bold('No')}`)}`
+    );
     console.log('\n');
   }
 
-  const addedSelectorsTF: boolean = addSelectors ? true : false;
+  const addedSelectorsTF: boolean = !!addSelectors;
 
   if (addedSelectorsTF) {
     selector = `${targetType}[${addSelectors}]`;
