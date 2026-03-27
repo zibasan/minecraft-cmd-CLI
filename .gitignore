@@ -42,3 +42,6 @@ scripts/*
 
 # Husky
 .husky/_/
+
+# Export Minecraft items, effects, etc.
+export_mc_list.ts

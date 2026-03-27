@@ -1,16 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Enquirer from 'enquirer';
+
 import chalk from 'chalk';
+import Enquirer from 'enquirer';
 import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
 import { warn } from './symbols.js';
 
 const { Input, Select, Toggle, Form } = Enquirer as unknown as EnquirerModule;
 
 // --- 追加: 最小限のプロンプト実行関数 ---
-export async function runPrompt(prompt: EnquirerBasePrompt): Promise<any> {
+export async function runPrompt(prompt: EnquirerBasePrompt): Promise<unknown> {
   try {
     return await prompt.run();
-  } catch (e: any) {
+  } catch (e) {
     // EnquirerのCtrl+Cキャンセル(空文字)、または閉じられたあとのエラーの場合は握りつぶす
     if (e === '') {
       process.emit('SIGINT'); // Ctrl+Cのシグナルを送ることで、index.tsで設定した終了処理を呼び出す
@@ -21,7 +22,7 @@ export async function runPrompt(prompt: EnquirerBasePrompt): Promise<any> {
         /* 永遠に待機 */
       });
     }
-    if (e === '' && e.name === 'FOOD_CANCELED') {
+    if (typeof e === 'object' && e !== null && 'name' in e && e.name === 'FOOD_CANCELED') {
       return;
     }
     throw e; // それ以外の予期せぬエラーは投げる
@@ -33,10 +34,10 @@ export async function runPrompt(prompt: EnquirerBasePrompt): Promise<any> {
 export async function runForm(
   prompt: EnquirerBasePrompt,
   allowCancel: boolean = true
-): Promise<any> {
+): Promise<unknown> {
   try {
     return await prompt.run();
-  } catch (e: any) {
+  } catch (e: unknown) {
     // EnquirerのCtrl+Cキャンセル(空文字)、または閉じられたあとのエラーの場合は握りつぶす
     if (e === '' && allowCancel === false) {
       process.emit('SIGINT'); // Ctrl+Cのシグナルを送ることで、index.tsで設定した終了処理を呼び出す
@@ -50,6 +51,7 @@ export async function runForm(
     if (e === '' && allowCancel === true) {
       console.log(warn, chalk.yellow(' Cancelled. Back to components selection.'));
       console.log('\n');
+
       return '__BACK__'; // フォームがキャンセルされたことを示す特別な値
     }
     throw e; // それ以外の予期せぬエラーは投げる
@@ -124,15 +126,25 @@ export async function toggleQuestion(
  * @param message 質問のメッセージ
  * @param fallbackMessage AutoCompleteが利用できない場合の質問のメッセージ
  * @param choices 選択肢の配列: string[]
+ * @param allowBack backオプションを追加するかどうか。デフォルト値：true
  * @returns 選択された値: string
  */
 export async function autoComplete(
   message: string,
   fallbackMessage: string,
-  choices: string[]
+  choices: string[],
+  allowBack: boolean = true
 ): Promise<string> {
   const enquirerModule = Enquirer as EnquirerModule;
   const AutoComplete = enquirerModule.AutoComplete || enquirerModule.default?.AutoComplete;
+
+  // Backを許可する(true)ならbackオプションを追加、許可しない(false)ならchoicesのみ
+  const finalChoices = allowBack
+    ? [
+        { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
+        ...choices.map((c) => ({ name: c, value: c })),
+      ]
+    : [...choices.map((c) => ({ name: c, value: c }))];
 
   let input = '';
   if (AutoComplete && choices.length > 0) {
@@ -141,10 +153,7 @@ export async function autoComplete(
       message:
         message +
         chalk.gray.italic(' (Type to search, or select "mc_cmd_gen_cli:back" to go back)'),
-      choices: [
-        { name: 'mc_cmd_gen_cli:back', value: '__BACK__' },
-        ...choices.map((c) => ({ name: c, value: c })),
-      ],
+      choices: finalChoices,
       limit: 10,
     }) as EnquirerBasePrompt;
 
@@ -183,6 +192,7 @@ export async function fillOutForm(
     initial?: string;
   }[],
   allowCancel: boolean = true
+  // biome-ignore lint/suspicious/noExplicitAny: どの値を返すか不明なため
 ): Promise<any> {
   if (!Form) {
     throw new Error('enquirer Form not available');
@@ -195,6 +205,7 @@ export async function fillOutForm(
     // show all choices
     stdout: process.stdout,
     stdin: process.stdin,
+    // biome-ignore lint/suspicious/noExplicitAny: どの値を返すか不明なため
     validate(value: any) {
       // 全項目が入力されているか簡易チェック
       for (const choice of choices) {
@@ -205,7 +216,7 @@ export async function fillOutForm(
 
         if (choice.type === 'number') {
           // 数字（整数・小数）以外を拒否
-          if (isNaN(Number(input))) {
+          if (Number.isNaN(Number(input))) {
             return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number.`)}`;
           }
         }
@@ -220,7 +231,7 @@ export async function fillOutForm(
 
         if (choice.type === 'string | number') {
           // 数字（整数・小数）または文字列以外を拒否
-          if (isNaN(Number(input)) && typeof input !== 'string') {
+          if (Number.isNaN(Number(input)) && typeof input !== 'string') {
             return `${chalk.bgRed.white(' ERROR ')} ${chalk.red(`${choice.message} must be a number or a string.`)}`;
           }
         }
@@ -243,6 +254,7 @@ export async function fillOutForm(
           }
         }
       }
+
       return true;
     },
   }) as EnquirerBasePrompt;

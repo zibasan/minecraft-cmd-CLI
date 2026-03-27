@@ -1,8 +1,8 @@
 import chalk from 'chalk';
-import { getItemName } from './item.js';
-import { addItemComponentsQuestion } from './item-component.js';
 import { createQuestion, toggleQuestion } from '../../util/questionsFunc.js';
 import { error } from '../../util/symbols.js';
+import { getItemName } from './item.js';
+import { addItemComponentsQuestion } from './item-component.js';
 
 export async function selectItem(): Promise<string> {
   const itemName = await getItemName();
@@ -17,7 +17,7 @@ export async function selectItem(): Promise<string> {
     console.log(`${chalk.blue('Add component(s):')} ${chalk.green(`${chalk.bold('No')}`)}`);
   }
 
-  const addedComponentsTF: boolean = addComponents ? true : false;
+  const addedComponentsTF: boolean = !!addComponents;
 
   let item: string;
 

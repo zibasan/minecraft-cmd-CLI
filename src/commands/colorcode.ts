@@ -1,6 +1,6 @@
-import { Command } from 'commander';
 import chalk from 'chalk';
 import Table from 'cli-table3';
+import { Command } from 'commander';
 import zalgo from 'zalgo-js';
 
 export let symbol: string;

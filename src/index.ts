@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import chalk from 'chalk';
 import { Command } from 'commander';
-import { createCommand } from './commands/create.js';
 import { blockCommand } from './commands/block.js';
 import { colorCodeCommand } from './commands/colorcode.js';
+import { createCommand } from './commands/create.js';
 
 process.on('SIGINT', () => {
   console.log(

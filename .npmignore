@@ -57,3 +57,6 @@ docs/*.md
 
 # Zip files
 *.zip
+
+# Export Minecraft items, effects, etc.
+export_mc_list.ts

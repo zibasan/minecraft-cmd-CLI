@@ -1,14 +1,14 @@
 import chalk from 'chalk';
-import { loadDataLists, suggestSimilar } from '../../util/utilsFunc.js';
 import {
+  autoComplete,
   createQuestion,
+  fillOutForm,
   selectFromList,
   toggleQuestion,
-  fillOutForm,
-  autoComplete,
 } from '../../util/questionsFunc.js';
-import { warn, error } from '../../util/symbols.js';
+import { error, warn } from '../../util/symbols.js';
 import { COMPONENT_DESCRIPTIONS } from '../../util/utils.js';
+import { loadDataLists, suggestSimilar } from '../../util/utilsFunc.js';
 
 /**
  * 追加するコンポーネントを選択、さらにその内容を指定させる
@@ -153,7 +153,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
           }
 
           const damageNum = parseInt(comp_damage.trim(), 10);
-          if (isNaN(damageNum) || damageNum < 0) {
+          if (Number.isNaN(damageNum) || damageNum < 0) {
             console.log(
               error,
               chalk.red(' Please enter a valid damage value (non-negative integer).')
@@ -241,7 +241,9 @@ export async function addItemComponentsQuestion(): Promise<string> {
               console.log(chalk.red(`Enchantments "${enchantments_name}" not found.`));
               if (suggestions.length > 0) {
                 console.log(chalk.yellow('Did you mean:'));
-                suggestions.forEach((s) => console.log(`  - ${s}`));
+                for (const s of suggestions) {
+                  console.log(`  - ${s}`);
+                }
               }
               console.log(
                 error,
@@ -282,7 +284,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
               continue;
             }
             const levelNum = parseInt(enchantmentLevel.trim(), 10);
-            if (isNaN(levelNum) || levelNum < 1 || levelNum > 255) {
+            if (Number.isNaN(levelNum) || levelNum < 1 || levelNum > 255) {
               console.log(error, chalk.red(' Please enter a valid enchantment level(1~255).'));
               continue;
             }
@@ -393,7 +395,9 @@ export async function addItemComponentsQuestion(): Promise<string> {
             console.log(chalk.red(`Sound "${fullName}" not found.`));
             if (suggestions.length > 0) {
               console.log(chalk.yellow('Did you mean:'));
-              suggestions.forEach((s) => console.log(`  - ${s}`));
+              for (const s of suggestions) {
+                console.log(`  - ${s}`);
+              }
             }
             console.log(
               error,
@@ -444,7 +448,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
           }
 
           const maxDamageNum = parseInt(comp_max_damage.trim(), 10);
-          if (isNaN(maxDamageNum) || maxDamageNum < 0) {
+          if (Number.isNaN(maxDamageNum) || maxDamageNum < 0) {
             console.log(
               error,
               chalk.red(' Please enter a valid max damage(non-negative integer).')
@@ -477,7 +481,7 @@ export async function addItemComponentsQuestion(): Promise<string> {
           }
 
           const maxStackSizeNum = parseInt(comp_max_stack_size.trim(), 10);
-          if (isNaN(maxStackSizeNum) || maxStackSizeNum < 0 || maxStackSizeNum > 99) {
+          if (Number.isNaN(maxStackSizeNum) || maxStackSizeNum < 0 || maxStackSizeNum > 99) {
             console.log(error, chalk.red(' Please enter a valid max damage(int, 1-99).'));
             continue;
           }
@@ -540,7 +544,9 @@ export async function addItemComponentsQuestion(): Promise<string> {
               console.log(chalk.red(`Block "${fullName}" not found.`));
               if (suggestions.length > 0) {
                 console.log(chalk.yellow('Did you mean:'));
-                suggestions.forEach((s) => console.log(`  - ${s}`));
+                for (const s of suggestions) {
+                  console.log(`  - ${s}`);
+                }
               }
               continue; // 入力待ちに戻る
             }
@@ -643,7 +649,9 @@ export async function addItemComponentsQuestion(): Promise<string> {
               console.log(chalk.red(`Block "${fullName}" not found.`));
               if (suggestions.length > 0) {
                 console.log(chalk.yellow('Did you mean:'));
-                suggestions.forEach((s) => console.log(`  - ${s}`));
+                for (const s of suggestions) {
+                  console.log(`  - ${s}`);
+                }
               }
               continue; // 入力待ちに戻る
             }

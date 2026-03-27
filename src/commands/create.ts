@@ -1,21 +1,29 @@
-import { Command } from 'commander';
 import chalk from 'chalk';
 import clipboard from 'clipboardy';
-import ora from 'ora';
+import { Command } from 'commander';
 import Enquirer from 'enquirer';
+import ora from 'ora';
+import { selectItem } from '../features/items/item-select.js';
 import { sendNotify } from '../features/notifier.js';
 import { addSelectorsQuestion } from '../features/selectors/selector.js';
-import { info, success, warn, error } from '../util/symbols.js';
+import { getSlot } from '../features/slots/slot.js';
 import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
-import { createQuestion, selectFromList, runPrompt, fillOutForm } from '../util/questionsFunc.js';
-import { loadDataLists, suggestSimilar } from '../util/utilsFunc.js';
+import {
+  autoComplete,
+  createQuestion,
+  fillOutForm,
+  runPrompt,
+  selectFromList,
+  toggleQuestion,
+} from '../util/questionsFunc.js';
+import { error, info, success, warn } from '../util/symbols.js';
 import {
   ITEM_COMMANDS_DESCRIPTIONS,
   SETBLOCK_OPTIONS_DESCRIPTIONS,
   TP_COMMAND_DESCRIPTIONS,
 } from '../util/utils.js';
-import { getSlot } from '../features/slots/slot.js';
-import { selectItem } from '../features/items/item-select.js';
+import { loadDataLists, suggestSimilar } from '../util/utilsFunc.js';
+
 // import figureSet from 'figures';
 
 const { Input } = Enquirer as unknown as EnquirerModule;
@@ -132,9 +140,24 @@ export function createCommand(): Command {
           const locResult = await fillOutForm(
             chalk.cyan('Enter location coordinates (e.g., 0 64 0 or ~ ~ ~).'),
             [
-              { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-              { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-              { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+              {
+                name: 'X',
+                message: 'X coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
+              {
+                name: 'Y',
+                message: 'Y coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
+              {
+                name: 'Z',
+                message: 'Z coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
             ],
             false
           );
@@ -168,7 +191,7 @@ export function createCommand(): Command {
             ],
             false
           );
-          rotation = `${rotResult['yaw']} ${rotResult['pitch']}`;
+          rotation = `${rotResult.yaw} ${rotResult.pitch}`;
           console.log(chalk.blue(`<rotation>:`), `${chalk.green(`${chalk.bold(rotation)}`)}\n`);
         }
 
@@ -181,9 +204,24 @@ export function createCommand(): Command {
           const faceLocResult = await fillOutForm(
             chalk.cyan('Enter facing location coordinates...'),
             [
-              { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-              { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-              { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+              {
+                name: 'X',
+                message: 'X coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
+              {
+                name: 'Y',
+                message: 'Y coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
+              {
+                name: 'Z',
+                message: 'Z coordinate',
+                initial: '~',
+                type: 'number | ~ | ^',
+              },
             ],
             false
           );
@@ -258,9 +296,24 @@ export function createCommand(): Command {
         const locResult = await fillOutForm(
           chalk.cyan('Enter location coordinates (e.g., 0 64 0 or ~ ~ ~).'),
           [
-            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+            {
+              name: 'X',
+              message: 'X coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Y',
+              message: 'Y coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Z',
+              message: 'Z coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
           ],
           false
         );
@@ -275,7 +328,10 @@ export function createCommand(): Command {
             const ac = new AutoComplete({
               name: 'block',
               message: 'Block (e.g., diamond_block): ',
-              choices: blocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
+              choices: blocks.map((b) => ({
+                name: `minecraft:${b}`,
+                value: b,
+              })),
               limit: 10,
             }) as EnquirerBasePrompt;
             try {
@@ -301,14 +357,15 @@ export function createCommand(): Command {
             console.log(chalk.red(`Block ID "${sbBlock}" not found.`));
             if (suggestions.length > 0) {
               console.log(chalk.yellow('Did you mean:'));
-              suggestions.forEach((s) => console.log(`  - ${s}`));
+              for (const s of suggestions) {
+                console.log(`  - ${s}`);
+              }
             }
             console.log(
               error,
               chalk.cyan('Please enter a valid block ID (try Tab to autocomplete).')
             );
             sbBlock = '';
-            continue;
           }
         } while (!sbPosition.trim() || !sbBlock.trim());
 
@@ -346,9 +403,24 @@ export function createCommand(): Command {
             'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify as the starting point...'
           ),
           [
-            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+            {
+              name: 'X',
+              message: 'X coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Y',
+              message: 'Y coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Z',
+              message: 'Z coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
           ],
           false
         );
@@ -360,9 +432,24 @@ export function createCommand(): Command {
             'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify as the ending point...'
           ),
           [
-            { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-            { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+            {
+              name: 'X',
+              message: 'X coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Y',
+              message: 'Y coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
+            {
+              name: 'Z',
+              message: 'Z coordinate',
+              initial: '~',
+              type: 'number | ~ | ^',
+            },
           ],
           false
         );
@@ -378,7 +465,10 @@ export function createCommand(): Command {
               const ac = new AutoComplete({
                 name: 'fillBlock',
                 message: 'Block (e.g., stone):',
-                choices: fillBlocks.map((b) => ({ name: `minecraft:${b}`, value: b })),
+                choices: fillBlocks.map((b) => ({
+                  name: `minecraft:${b}`,
+                  value: b,
+                })),
                 limit: 10,
               }) as EnquirerBasePrompt;
               try {
@@ -410,10 +500,11 @@ export function createCommand(): Command {
             console.log(error, chalk.red(`Block ID "${fillBlock}" not found.`));
             if (suggestions.length) {
               console.log(chalk.yellow('Did you mean:'));
-              suggestions.forEach((s) => console.log(`  - ${s}`));
+              for (const s of suggestions) {
+                console.log(`  - ${s}`);
+              }
             }
             fillBlock = '';
-            continue;
           }
         } while (!fillBlock.trim());
         // ensure final output includes minecraft: prefix
@@ -464,9 +555,24 @@ export function createCommand(): Command {
                 'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify target block...'
               ),
               [
-                { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-                { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-                { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+                {
+                  name: 'X',
+                  message: 'X coordinate',
+                  initial: '~',
+                  type: 'number | ~ | ^',
+                },
+                {
+                  name: 'Y',
+                  message: 'Y coordinate',
+                  initial: '~',
+                  type: 'number | ~ | ^',
+                },
+                {
+                  name: 'Z',
+                  message: 'Z coordinate',
+                  initial: '~',
+                  type: 'number | ~ | ^',
+                },
               ],
               false
             );
@@ -513,9 +619,24 @@ export function createCommand(): Command {
                   'Enter the block coordinates(e.g., 0 64 0 or ~ ~ ~) to specify target block...'
                 ),
                 [
-                  { name: 'X', message: 'X coordinate', initial: '~', type: 'number | ~ | ^' },
-                  { name: 'Y', message: 'Y coordinate', initial: '~', type: 'number | ~ | ^' },
-                  { name: 'Z', message: 'Z coordinate', initial: '~', type: 'number | ~ | ^' },
+                  {
+                    name: 'X',
+                    message: 'X coordinate',
+                    initial: '~',
+                    type: 'number | ~ | ^',
+                  },
+                  {
+                    name: 'Y',
+                    message: 'Y coordinate',
+                    initial: '~',
+                    type: 'number | ~ | ^',
+                  },
+                  {
+                    name: 'Z',
+                    message: 'Z coordinate',
+                    initial: '~',
+                    type: 'number | ~ | ^',
+                  },
                 ],
                 false
               );
@@ -538,6 +659,110 @@ export function createCommand(): Command {
         break;
       }
 
+      case 'effect': {
+        const effects = await loadDataLists('effects', 'EFFECTS');
+        const effectTypes = [
+          'give - give an effect to entit(ies)',
+          'clear - take one or all effect(s) from entit(ies)',
+        ];
+        let selectedEffectType = await selectFromList(chalk.cyan('Effect type:'), effectTypes);
+        selectedEffectType = selectedEffectType.split(' - ')[0];
+
+        let effectTarget = '';
+        let effectName = '';
+        let duration = '';
+        let amplifier = '';
+        let effectOption: boolean = false;
+
+        switch (selectedEffectType) {
+          case 'give': {
+            effectTarget = await addSelectorsQuestion();
+            while (true) {
+              const input = await autoComplete(
+                chalk.cyan('Select a effect name...'),
+                chalk.cyan('Enter a effect name(e.g., night_vision etc.)...'),
+                effects,
+                false
+              );
+              if (!input) {
+                console.log(error, chalk.red('Please enter effect name.'));
+                continue;
+              }
+              // 入力値の正規化（minecraft:がなければ付与）
+              const fullName = input.startsWith('minecraft:') ? input : `minecraft:${input}`;
+
+              // 存在チェック (effects内には既にminecraft:が含まれているため、fullNameと直接比較)
+              if (!effects.includes(fullName)) {
+                const suggestions = suggestSimilar(fullName, effects).filter(
+                  (s) => s !== '__BACK__'
+                );
+
+                console.log(chalk.red(`Effect "${fullName}" not found.`));
+                if (suggestions.length > 0) {
+                  console.log(chalk.yellow('Did you mean:'));
+                  for (const s of suggestions) {
+                    console.log(`  - ${s}`);
+                  }
+                }
+                console.log(
+                  error,
+                  chalk.cyan('Please enter a valid effect name (try Tab to autocomplete).')
+                );
+                continue;
+              }
+
+              // チェック通過
+              effectName = fullName;
+              break;
+            }
+
+            const isInfiniteLists = [
+              'infinite - Set the effect duration to infinite',
+              'seconds - Set the effect duration in seconds',
+            ];
+
+            let isInfiniteAnswer = await selectFromList(
+              'Which option do you want to use to specify the duration of the effect?',
+              isInfiniteLists
+            );
+
+            isInfiniteAnswer = isInfiniteAnswer.split(' - ')[0];
+
+            let isInfinite: boolean = false;
+            switch (isInfiniteAnswer) {
+              case 'infinite': {
+                isInfinite = true;
+                break;
+              }
+              case 'seconds': {
+                isInfinite = false;
+                break;
+              }
+            }
+
+            if (isInfinite === true) {
+              duration = 'infinite';
+            }
+
+            if (isInfinite === false) {
+              while (true) {
+                duration = await createQuestion(chalk.cyan('Duration in seconds: '));
+                break;
+              }
+            }
+
+            amplifier = await createQuestion(
+              chalk.cyan('Amplifier level (0 for level 1, 0-255): ')
+            );
+
+            effectOption = await toggleQuestion('Do you want to hide the effect particles?');
+
+            generatedCommand = `/effect give ${effectTarget} ${effectName} ${duration} ${amplifier} ${effectOption}`;
+          }
+        }
+        break;
+      }
+
       default: {
         console.log(error, chalk.red(`Unknown command type: ${commandType}`));
         console.log(warn, chalk.yellow(`"${commandType}" is not yet supported. Sorry!`));
@@ -549,7 +774,10 @@ export function createCommand(): Command {
       generatedCommand = generatedCommand.slice(1);
     }
 
-    const spinner = ora({ text: 'Generating commands...', discardStdin: false }).start();
+    const spinner = ora({
+      text: 'Generating commands...',
+      discardStdin: false,
+    }).start();
     await new Promise((r) => setTimeout(r, 600));
     spinner.stop();
 
@@ -571,8 +799,7 @@ export function createCommand(): Command {
           throw new CancelError();
         },
         */
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }) as any;
+      }) as EnquirerBasePrompt;
 
       try {
         await runPrompt(confirmPrompt);

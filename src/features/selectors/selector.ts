@@ -1,7 +1,7 @@
 import chalk from 'chalk';
+import ora from 'ora';
 import { createQuestion, selectFromList, toggleQuestion } from '../../util/questionsFunc.js';
 import { error, warn } from '../../util/symbols.js';
-import ora from 'ora';
 
 let addSelectors: string = '';
 let selector: string = '';
@@ -67,7 +67,7 @@ export async function addSelectorsQuestion(): Promise<string> {
             }
 
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e) {
+          } catch (_e) {
             spinner.stop(); // ネットワークエラー等もとりあえずスルー
           }
           // =======================================
@@ -417,7 +417,7 @@ export async function addSelectorsQuestion(): Promise<string> {
     console.log('\n');
   }
 
-  const addedSelectorsTF: boolean = addSelectors ? true : false;
+  const addedSelectorsTF: boolean = !!addSelectors;
 
   if (addedSelectorsTF) {
     selector = `${targetType}[${addSelectors}]`;

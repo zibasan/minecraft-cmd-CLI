@@ -51,7 +51,9 @@ export async function getItemName(): Promise<string> {
       console.log(chalk.red(`Item "${fullName}" not found.`));
       if (suggestions.length > 0) {
         console.log(chalk.yellow('Did you mean:'));
-        suggestions.forEach((s) => console.log(`  - ${s}`));
+        for (const s of suggestions) {
+          console.log(`  - ${s}`);
+        }
       }
       console.log(error, chalk.cyan('Please enter a valid item name (try Tab to autocomplete).'));
       continue;

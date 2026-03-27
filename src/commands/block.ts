@@ -1,11 +1,11 @@
-import { Command } from 'commander';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import chalk from 'chalk';
-import { createQuestion } from '../util/questionsFunc.js';
 import clipboard from 'clipboardy';
-import { writeFile } from 'fs/promises';
-import path from 'path';
-import type { EnquirerModule, EnquirerBasePrompt } from '../types/enquirer.js';
-import { info, success, error } from '../util/symbols.js';
+import { Command } from 'commander';
+import type { EnquirerBasePrompt, EnquirerModule } from '../types/enquirer.js';
+import { createQuestion } from '../util/questionsFunc.js';
+import { error, info, success } from '../util/symbols.js';
 
 const DATA_TS = path.resolve('src/data/blocks.ts');
 
@@ -80,7 +80,9 @@ export function blockCommand(): Command {
         const mod = await import(new URL('../data/blocks.js', import.meta.url).href);
         const list = (mod?.BLOCKS || mod?.default || []) as string[];
         console.log(chalk.green(`Known block IDs (${list.length}):`));
-        list.forEach((b) => console.log(` - minecraft:${b}`));
+        for (const b of list) {
+          console.log(` - minecraft:${b}`);
+        }
       } catch {
         console.log(
           chalk.red(
@@ -440,7 +442,9 @@ export function blockCommand(): Command {
             continue;
           }
           console.log(chalk.green(`Matches (${matches.length}):`));
-          matches.forEach((m) => console.log(` - minecraft:${m}`));
+          for (const m of matches) {
+            console.log(` - minecraft:${m}`);
+          }
           const pick = (
             await createQuestion(chalk.cyan('Enter block id to copy (or press Enter to go back): '))
           ).trim();

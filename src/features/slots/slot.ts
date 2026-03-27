@@ -30,7 +30,7 @@ export async function getSlot(): Promise<string> {
       const slotNum = parseInt(slotNumStr.trim(), 10);
 
       // バリデーション: 数値であること、かつ min 以上 max 以下であること
-      if (isNaN(slotNum) || slotNum < min || slotNum > max) {
+      if (Number.isNaN(slotNum) || slotNum < min || slotNum > max) {
         console.log(error, chalk.red(`Please enter a valid number between ${min} and ${max}.`));
         continue;
       }
