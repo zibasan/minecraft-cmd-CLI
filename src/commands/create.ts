@@ -758,6 +758,66 @@ export function createCommand(): Command {
             effectOption = await toggleQuestion('Do you want to hide the effect particles?');
 
             generatedCommand = `/effect give ${effectTarget} ${effectName} ${duration} ${amplifier} ${effectOption}`;
+            break;
+          }
+          case 'clear': {
+            effectTarget = await addSelectorsQuestion();
+            const clearOption = await toggleQuestion(
+              'Do you want to clear all effects or only a specific effect?',
+              'All',
+              'Specific'
+            );
+
+            const isAll = clearOption;
+
+            switch (isAll) {
+              case true: {
+                generatedCommand = `/effect clear ${effectTarget}`;
+                break;
+              }
+              case false: {
+                while (true) {
+                  const input = await autoComplete(
+                    chalk.cyan('Select a effect name...'),
+                    chalk.cyan('Enter a effect name(e.g., night_vision etc.)...'),
+                    effects,
+                    false
+                  );
+                  if (!input) {
+                    console.log(error, chalk.red('Please enter effect name.'));
+                    continue;
+                  }
+                  // 入力値の正規化（minecraft:がなければ付与）
+                  const fullName = input.startsWith('minecraft:') ? input : `minecraft:${input}`;
+
+                  // 存在チェック (effects内には既にminecraft:が含まれているため、fullNameと直接比較)
+                  if (!effects.includes(fullName)) {
+                    const suggestions = suggestSimilar(fullName, effects).filter(
+                      (s) => s !== '__BACK__'
+                    );
+
+                    console.log(chalk.red(`Effect "${fullName}" not found.`));
+                    if (suggestions.length > 0) {
+                      console.log(chalk.yellow('Did you mean:'));
+                      for (const s of suggestions) {
+                        console.log(`  - ${s}`);
+                      }
+                    }
+                    console.log(
+                      error,
+                      chalk.cyan('Please enter a valid effect name (try Tab to autocomplete).')
+                    );
+                    continue;
+                  }
+
+                  // チェック通過
+                  effectName = fullName;
+                  break;
+                }
+                generatedCommand = `/effect clear ${effectTarget} ${effectName}`;
+                break;
+              }
+            }
           }
         }
         break;
