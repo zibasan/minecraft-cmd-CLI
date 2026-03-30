@@ -3,6 +3,7 @@ import clipboard from 'clipboardy';
 import { Command } from 'commander';
 import Enquirer from 'enquirer';
 import ora from 'ora';
+import type { enchantmentData } from '../data/enchantments.js';
 import { selectItem } from '../features/items/item-select.js';
 import { sendNotify } from '../features/notifier.js';
 import { addSelectorsQuestion } from '../features/selectors/selector.js';
@@ -822,6 +823,99 @@ export function createCommand(): Command {
         }
         break;
       }
+      case 'enchant': {
+        const enchantmentsData = await loadDataLists<enchantmentData>(
+          'enchantments',
+          'ENCHANTMENTS'
+        );
+        const enchantments = enchantmentsData.map((e) => e.name);
+        const target = await addSelectorsQuestion();
+
+        let enchantment = '';
+        let normalizedEnch = '';
+        while (true) {
+          enchantment = await autoComplete(
+            chalk.cyan('Enchantment name (e.g., minecraft:sharpness):'),
+            chalk.cyan('Enter an enchantment name (e.g., minecraft:sharpness)...'),
+            enchantments,
+            false
+          );
+
+          // Normalize enchantments id: allow with or without minecraft: prefix
+          normalizedEnch = enchantment.startsWith('minecraft:')
+            ? enchantment.slice(10)
+            : enchantment;
+          const exists = enchantments.includes(normalizedEnch);
+
+          if (!enchantment.trim()) {
+            console.log(error, chalk.red('Please enter enchantments name.'));
+            continue;
+          }
+          if (!exists) {
+            const suggestions = suggestSimilar(normalizedEnch, enchantments).map(
+              (s) => `minecraft:${s}`
+            );
+
+            console.log(chalk.red(`Enchantments "${enchantment}" not found.`));
+            if (suggestions.length > 0) {
+              console.log(chalk.yellow('Did you mean:'));
+              for (const s of suggestions) {
+                console.log(`  - ${s}`);
+              }
+            }
+            console.log(
+              error,
+              chalk.cyan('Please enter a valid enchantments name (try Tab to autocomplete).')
+            );
+            continue;
+          }
+
+          break;
+        }
+        const selectedEnchData = enchantmentsData.find((e) => e.name === normalizedEnch);
+        const maxLevel = selectedEnchData ? selectedEnchData.maxLevel : 1;
+
+        const lvString = maxLevel === 1 ? '1' : `1~${maxLevel}`;
+
+        let enchantmentLevel = '';
+        if (maxLevel === 1) {
+          enchantmentLevel = '1';
+        } else {
+          while (true) {
+            enchantmentLevel = await createQuestion(
+              chalk.cyan(`Enchantment(${enchantment}) level(${lvString}): `),
+              1
+            );
+
+            if (!enchantmentLevel.trim()) {
+              console.log(error, chalk.red(' Please enter an enchantment level.'));
+              continue;
+            }
+            const levelNum = parseInt(enchantmentLevel.trim(), 10);
+            if (Number.isNaN(levelNum) || levelNum < 1 || levelNum > maxLevel) {
+              console.log(
+                error,
+                chalk.red(` Please enter a valid enchantment level(${lvString}).`)
+              );
+              continue;
+            }
+
+            // 正しいレベルが入力されたら、リストに追加してループを抜ける
+            console.log(
+              chalk.blue(`Enchantment: `),
+              `${chalk.green.bold(`${enchantment} - ${levelNum}`)}`
+            );
+            console.log('\n');
+            break;
+          }
+        }
+
+        generatedCommand = `/enchant ${target} ${enchantment} ${enchantmentLevel}`;
+        break;
+      }
+      // TODO: summonコマンド生成の処理実装
+      // TODO: xpコマンド生成の処理実装
+      // TODO: 他コマンドの生成処理も実装する
 
       default: {
         console.log(error, chalk.red(`Unknown command type: ${commandType}`));
@@ -842,7 +936,7 @@ export function createCommand(): Command {
     spinner.stop();
 
     console.log(
-      `${success} ${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}`
+      `${success} ${chalk.green('Generated! Command:')} ${chalk.blue(`${generatedCommand}`)}\n`
     );
 
     if (options.copy === 'false') {

@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import type { enchantmentData } from '../../data/enchantments.js';
 import {
   autoComplete,
   createQuestion,
@@ -197,7 +198,11 @@ export async function addItemComponentsQuestion(): Promise<string> {
         const comp_enchantmentsList: string[] = [];
         let addMoreEnchantments = true;
 
-        const enchantments = await loadDataLists('enchantments', 'ENCHANTMENTS');
+        const enchantmentsData = await loadDataLists<enchantmentData>(
+          'enchantments',
+          'ENCHANTMENTS'
+        );
+        const enchantments = enchantmentsData.map((e) => e.name);
 
         // 複数のエンチャントを追加するための大枠のループ
         while (addMoreEnchantments) {

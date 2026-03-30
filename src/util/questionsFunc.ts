@@ -59,13 +59,14 @@ export async function runForm(
 }
 // ----------------------------------------
 
-export async function createQuestion(query: string): Promise<string> {
+export async function createQuestion(query: string, initial?: number): Promise<string> {
   if (!Input) {
     throw new Error('enquirer Input not available');
   }
 
   const prompt = new Input({
     message: chalk.cyan(query),
+    initial: initial ? String(initial) : undefined,
   }) as EnquirerBasePrompt;
 
   return (await runPrompt(prompt)) as string;

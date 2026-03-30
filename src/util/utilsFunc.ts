@@ -9,7 +9,10 @@ import { warn } from './symbols.js';
  * @returns ロードしたいデータのリスト
  */
 
-export async function loadDataLists(fileName: string, constantName: string): Promise<string[]> {
+export async function loadDataLists<T = string>(
+  fileName: string,
+  constantName: string
+): Promise<T[]> {
   const fileExtensions = ['js', 'ts'];
 
   for (const ext of fileExtensions) {
@@ -18,7 +21,7 @@ export async function loadDataLists(fileName: string, constantName: string): Pro
       const mod = await import(url);
 
       // 動的に定数名でアクセス (mod[constantName])
-      const list = (mod?.[constantName] || mod?.default || []) as string[];
+      const list = (mod?.[constantName] || mod?.default || []) as T[];
 
       return list;
     } catch {}

@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+echo "hint: Waiting for CLI to review and modify your commit message..."
+exec < /dev/tty
+npx cw "$1"
