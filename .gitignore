@@ -45,3 +45,6 @@ scripts/*
 
 # Export Minecraft items, effects, etc.
 export_mc_list.ts
+
+# AI references
+references
