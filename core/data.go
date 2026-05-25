@@ -1,0 +1,73 @@
+package core
+
+import (
+	"embed"
+	"encoding/json"
+	"fmt"
+)
+
+//go:embed data/*.json
+var dataFS embed.FS
+
+type EnchantmentData struct {
+	Name     string `json:"name"`
+	MaxLevel int    `json:"maxLevel"`
+}
+
+var (
+	Blocks       []string
+	Effects      []string
+	Enchantments []EnchantmentData
+	Items        []string
+	Sounds       []string
+)
+
+// LoadData reads and decodes the embedded JSON files into memory.
+func LoadData() error {
+	// 1. Blocks
+	blockBytes, err := dataFS.ReadFile("data/blocks.json")
+	if err != nil {
+		return fmt.Errorf("failed to read blocks.json: %w", err)
+	}
+	if err := json.Unmarshal(blockBytes, &Blocks); err != nil {
+		return fmt.Errorf("failed to parse blocks.json: %w", err)
+	}
+
+	// 2. Effects
+	effectBytes, err := dataFS.ReadFile("data/effects.json")
+	if err != nil {
+		return fmt.Errorf("failed to read effects.json: %w", err)
+	}
+	if err := json.Unmarshal(effectBytes, &Effects); err != nil {
+		return fmt.Errorf("failed to parse effects.json: %w", err)
+	}
+
+	// 3. Enchantments
+	enchantmentBytes, err := dataFS.ReadFile("data/enchantments.json")
+	if err != nil {
+		return fmt.Errorf("failed to read enchantments.json: %w", err)
+	}
+	if err := json.Unmarshal(enchantmentBytes, &Enchantments); err != nil {
+		return fmt.Errorf("failed to parse enchantments.json: %w", err)
+	}
+
+	// 4. Items
+	itemBytes, err := dataFS.ReadFile("data/items.json")
+	if err != nil {
+		return fmt.Errorf("failed to read items.json: %w", err)
+	}
+	if err := json.Unmarshal(itemBytes, &Items); err != nil {
+		return fmt.Errorf("failed to parse items.json: %w", err)
+	}
+
+	// 5. Sounds
+	soundBytes, err := dataFS.ReadFile("data/sounds.json")
+	if err != nil {
+		return fmt.Errorf("failed to read sounds.json: %w", err)
+	}
+	if err := json.Unmarshal(soundBytes, &Sounds); err != nil {
+		return fmt.Errorf("failed to parse sounds.json: %w", err)
+	}
+
+	return nil
+}

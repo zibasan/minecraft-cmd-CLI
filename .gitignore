@@ -48,3 +48,6 @@ export_mc_list.ts
 
 # AI references
 references
+
+# Bin Files
+*.exe
