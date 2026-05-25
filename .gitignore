@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 bun.lockb
+package-lock.json
 
 # Build output
 dist/
@@ -33,16 +34,14 @@ yarn-error.log*
 *.tmp
 .temp/
 temp/
+scripts/*
 
 # Linter and formatter cache
 .eslintcache
 .prettier-cache
 
 # Husky
-.husky/_
+.husky/_/
 
-# メモ
-/memo.txt
-
-# TODO
-/TODO.md
+# Export Minecraft items, effects, etc.
+export_mc_list.ts

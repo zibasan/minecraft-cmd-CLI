@@ -1,0 +1,166 @@
+name: Discord Component Notification
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ "master", "dev" ]
+  pull_request:
+    branches: [ "master", "dev" ]
+    types: [opened, closed, synchronize]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+  create:
+  discussion_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  discord-notification:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request || github.event_name != 'issue_comment'
+    steps:
+      - name: Prepare Notification Details
+        id: info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # --- 1. IDマッピング関数 ---
+          get_mention_reverse() {
+            case "$1" in
+              "tukuyomil032") echo "<@745902312345567252>" ;;
+              "zibasan")      echo "<@1100794879019323393>" ;;
+              *)              echo "@here" ;;
+            esac
+          }
+
+          # --- 2. コミット整形関数 ---
+          format_commits() {
+            local json="$1"
+            local target_url="$2"
+            local count=$(echo "$json" | jq '. | length')
+
+            # 最新4件を整形
+            local list=$(echo "$json" | jq -r '
+            reverse | .[:4] | .[] |
+            "[`\((.sha // .id)[0:7])`](https://github.com/zibasan/minecraft-cmd-CLI/commit/\((.sha // .id))) \((.commit.message // .message) | split("\n")[0])"
+            ')
+
+            echo "$list"
+            if [ "$count" -gt 4 ]; then
+              echo -e "\n----------\n[他 *$((count - 4)) 件*]($target_url)のコミット...\n"
+            fi
+          }
+
+          MENTION=$(get_mention_reverse "${{ github.actor }}")
+
+          case "${{ github.event_name }}" in
+            "push")
+              URL="${{ github.event.compare }}"
+              TITLE="📦 ブランチ${{ github.ref_name }}にpushされました: ${{ github.event.head_commit.message }}"
+              COMMITS_JSON='${{ toJson(github.event.commits) }}'
+              # 引数にURLを追加
+              COMMIT_LIST=$(format_commits "$COMMITS_JSON" "$URL")
+              DESC="**コミット内容**\n$COMMIT_LIST"
+              BRANCH="[${{ github.ref_name }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.ref_name }})"
+              MENTION="@here"
+              ;;
+            "pull_request")
+              PR_URL="${{ github.event.pull_request.html_url }}"
+              COMMITS_PAGE_URL="${PR_URL}/commits"
+              URL="$PR_URL"
+
+              if [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+                TITLE="✅ PRがMergeされました: #${{ github.event.pull_request.number }}"
+                COLOR=6570404
+                MENTION="@here"
+              elif [ "${{ github.event.action }}" = "closed" ]; then
+                TITLE="❌ PRがクローズされました: #${{ github.event.pull_request.number }}"
+                COLOR=15158332
+              else
+                TITLE="🆕 PRが作成されました: #${{ github.event.pull_request.number }}"
+                COLOR=3066993
+              fi
+
+              COMMITS_JSON=$(curl -s -H "Authorization: token $GH_TOKEN" ${{ github.event.pull_request.commits_url }})
+              COMMIT_LIST=$(format_commits "$COMMITS_JSON" "$COMMITS_PAGE_URL")
+              DESC="🎯 **リクエストされたコミット**\n$COMMIT_LIST"
+              BRANCH="[${{ github.event.pull_request.base.ref }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.event.pull_request.base.ref }}) <-- [${{ github.event.pull_request.head.ref }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.event.pull_request.head.ref }})"
+              ;;
+            "create")
+              REPO="${{ github.repository }}"
+              DEF_BRANCH="${{ github.event.master_branch }}"
+              TITLE=":herb: 新規ブランチが作成されました: ${{ github.event.ref }}"
+              REF=${{ github.event.ref }}
+
+              PR_CREATE_URL="https://github.com/$REPO/pulls"
+
+              DESC=":herb: デフォルトブランチ: ${{ github.event.master_branch }}\n\n:diamond_shape_with_a_dot_inside: [Pull Request一覧へ]($PR_CREATE_URL)"
+              URL="https://github.com/$REPO/tree/$REF"
+              BRANCH="[${{ github.event.ref }}](https://github.com/$REPO/tree/$REF)" ;;
+            *)
+              # その他のイベント用デフォルト
+              TITLE="📢 イベント: ${{ github.event_name }}"
+              DESC="${{ github.event.comment.body || github.event.review.state || 'GitHub Actions Notification' }}"
+              URL="${{ github.event.comment.html_url || github.event.review.html_url || github.event.repository.html_url }}"
+              BRANCH="[${{ github.ref_name }}](https://github.com/zibasan/minecraft-cmd-CLI/tree/${{ github.ref_name }})"
+              COLOR=12370112
+              ;;
+          esac
+
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "color=${COLOR:-3066993}" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "mention=$MENTION" >> $GITHUB_OUTPUT
+
+          echo "desc<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$DESC" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Discord Webhook Embed
+        shell: bash
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          TITLE: ${{ steps.info.outputs.title }}
+          DESC: ${{ steps.info.outputs.desc }}
+          URL: ${{ steps.info.outputs.url }}
+          COLOR: ${{ steps.info.outputs.color }}
+          BRANCH: ${{ steps.info.outputs.branch }}
+          MENTION: ${{ steps.info.outputs.mention }}
+          SENDER: ${{ github.actor }}
+        run: |
+          # jqを使用してJSONを組み立てる（これが一番確実です）
+          PAYLOAD=$(jq -n \
+            --arg content "$MENTION" \
+            --arg title "$TITLE" \
+            --arg desc "$DESC" \
+            --arg url "$URL" \
+            --arg color "$COLOR" \
+            --arg sender "$SENDER" \
+            --arg branch "$BRANCH" \
+            --arg sender_icon "https://github.com/$SENDER.png" \
+            '{
+              content: $content,
+              embeds: [{
+                title: $title,
+                description: $desc,
+                url: $url,
+                color: ($color | tonumber),
+                author: {
+                  name: $sender,
+                  icon_url: $sender_icon,
+                  url: ("https://github.com/" + $sender)
+                },
+                fields: [
+                  { name: "👤 操作したユーザー", value: $sender, inline: true },
+                  { name: "🌿 ブランチ", value: $branch, inline: true }
+                ]
+              }]
+            }')
+
+          curl -H "Content-Type: application/json" -X POST -d "$PAYLOAD" "$DISCORD_WEBHOOK"
