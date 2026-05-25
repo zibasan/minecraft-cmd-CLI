@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -32,11 +33,16 @@ var colorcodeCmd = &cobra.Command{
 		fmt.Printf("%s %s %s\n", infoColor, greenBold.Sprint("The color code will be displayed with the symbol:"), blueBold.Sprint(symbol))
 		fmt.Printf("%s %s %s\n\n", infoColor, greenBold.Sprint("The sample text will be displayed in this text:"), blueBold.Sprint(sampleFlag))
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.Debug)
-		fmt.Fprintln(w, "Code\tColor/Decoration Name\t\tSample\t")
-		fmt.Fprintln(w, "----\t---------------------\t\t------\t")
+		// テーブルのスタイル定義 (外枠をスタイリッシュなパープルで装飾)
+		borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
 
-		// Colors
+		// lipgloss/tableの作成（エスケープシーケンスの文字数を自動で無視して幅計算してくれます）
+		t := table.New().
+			Border(lipgloss.NormalBorder()).
+			BorderStyle(borderStyle).
+			Headers("Code", "Color/Decoration Name", "Sample")
+
+		// 1. Colorsのデータを追加
 		colors := []struct {
 			code, name, fgHex, bgHex string
 		}{
@@ -61,13 +67,10 @@ var colorcodeCmd = &cobra.Command{
 		for _, c := range colors {
 			codeStr := fmt.Sprintf("%s%s", symbol, c.code)
 			sampleStr := paintHex(sampleFlag, c.fgHex, c.bgHex)
-			fmt.Fprintf(w, "%s\t%s\t-->\t%s\t\n", codeStr, c.name, sampleStr)
+			t.Row(codeStr, c.name, sampleStr)
 		}
 
-		// Spacer
-		fmt.Fprintln(w, "\t\t\t\t")
-
-		// Decorations
+		// 2. Decorations（装飾コード）のデータを追加
 		decorations := []struct {
 			code, name, format string
 		}{
@@ -87,10 +90,11 @@ var colorcodeCmd = &cobra.Command{
 			} else {
 				sampleStr = fmt.Sprintf("%s%s\x1b[0m", d.format, sampleFlag)
 			}
-			fmt.Fprintf(w, "%s\t%s\t-->\t%s\t\n", codeStr, d.name, sampleStr)
+			t.Row(codeStr, d.name, sampleStr)
 		}
 
-		w.Flush()
+		// 美しくレンダリングされたテーブルを標準出力に表示
+		fmt.Fprintln(os.Stdout, t)
 		fmt.Println()
 	},
 }
@@ -118,7 +122,6 @@ func zalgoText(text string) string {
 	var sb strings.Builder
 	for idx, r := range text {
 		sb.WriteRune(r)
-		// add some mock combining marks
 		sb.WriteRune(combiningMarks[idx%len(combiningMarks)])
 		sb.WriteRune(combiningMarks[(idx+1)%len(combiningMarks)])
 	}
