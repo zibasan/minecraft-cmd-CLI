@@ -6,10 +6,11 @@ import (
 	"strings"
 )
 
+var posTokenRegex = regexp.MustCompile(`^(?:[~^]-?\d+|[~^]|-?\d+)$`)
+
 // IsValidPositionToken checks if a coordinate token is valid (e.g. ~ ~5 -10 ^ ^3).
 func IsValidPositionToken(token string) bool {
-	re := regexp.MustCompile(`^(?:[~^]-?\d+|[~^]|-?\d+)$`)
-	return re.MatchString(token)
+	return posTokenRegex.MatchString(token)
 }
 
 // IsValidPosition checks if a position string contains exactly 3 valid coordinate tokens.
@@ -149,14 +150,14 @@ func (e *ExecuteCommand) Build() string {
 
 // 7. Item Command
 type ItemCommand struct {
-	TargetType       string // "block" or "entity"
-	TargetPosOrSel   string // coordinates for block, selector for entity
-	Slot             string
-	SourceType       string // "block" or "entity"
-	SourcePosOrSel   string // coordinates for block, selector for entity
-	SourceSlot       string
-	Item             string // only used if replacing with item
-	IsFrom           bool   // true: replace from ..., false: replace with ...
+	TargetType     string // "block" or "entity"
+	TargetPosOrSel string // coordinates for block, selector for entity
+	Slot           string
+	SourceType     string // "block" or "entity"
+	SourcePosOrSel string // coordinates for block, selector for entity
+	SourceSlot     string
+	Item           string // only used if replacing with item
+	IsFrom         bool   // true: replace from ..., false: replace with ...
 }
 
 func (i *ItemCommand) Build() string {
@@ -229,4 +230,21 @@ func (e *EnchantCommand) Build() string {
 		enchStr = "minecraft:" + enchStr
 	}
 	return fmt.Sprintf("enchant %s %s %s", e.Target, enchStr, e.Level)
+}
+
+func FilterBlocksByCategory(allBlocks []string, categoryKeywords []string) []string {
+	if len(categoryKeywords) == 0 {
+		return allBlocks
+	}
+
+	var filtered []string
+	for _, block := range allBlocks {
+		for _, keyword := range categoryKeywords {
+			if strings.Contains(block, keyword) {
+				filtered = append(filtered, block)
+				break
+			}
+		}
+	}
+	return filtered
 }

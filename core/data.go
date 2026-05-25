@@ -4,7 +4,30 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"os"
 )
+
+type BlockData struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func LoadBlocks(filePath string) ([]BlockData, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var blocks []BlockData
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&blocks)
+	if err != nil {
+		return nil, err
+	}
+
+	return blocks, nil
+}
 
 //go:embed data/*.json
 var dataFS embed.FS

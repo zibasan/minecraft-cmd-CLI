@@ -261,19 +261,8 @@ var blockSearchCmd = &cobra.Command{
 			if chosenCat == "All" {
 				filtered = core.Blocks
 			} else {
-				keywords := CategoryKeywords[chosenCat]
-				for _, b := range core.Blocks {
-					match := false
-					for _, kw := range keywords {
-						if strings.Contains(b, kw) {
-							match = true
-							break
-						}
-					}
-					if match {
-						filtered = append(filtered, b)
-					}
-				}
+				// 💡 修正ポイント: 泥臭いループ処理を core パッケージの純粋関数に丸投げする！
+				filtered = core.FilterBlocksByCategory(core.Blocks, CategoryKeywords[chosenCat])
 			}
 
 			if len(filtered) == 0 {
