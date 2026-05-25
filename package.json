@@ -63,7 +63,7 @@
     "zalgo-js": "^1.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.9",
+    "@biomejs/biome": "2.4.15",
     "@types/node": "^25.3.1",
     "@types/node-notifier": "^8.0.5",
     "commit-wand": "^1.0.22",
@@ -77,6 +77,5 @@
       "eslint --fix",
       "prettier --write"
     ]
-  },
-  "packageManager": "pnpm@10.30.3"
+  }
 }
