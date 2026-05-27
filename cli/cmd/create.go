@@ -223,6 +223,7 @@ var createCmd = &cobra.Command{
 				Options(buildSelectOptions(core.Blocks)...).
 				Value(&block).
 				Filtering(true).
+				Height(12).
 				Run()
 			if err != nil {
 				return
@@ -277,6 +278,7 @@ var createCmd = &cobra.Command{
 				Options(buildSelectOptions(core.Blocks)...).
 				Value(&block).
 				Filtering(true).
+				Height(12).
 				Run()
 			if err != nil {
 				return
@@ -440,7 +442,7 @@ var createCmd = &cobra.Command{
 		case "effect":
 			var effType string
 			err = huh.NewSelect[string]().
-				Title("Effect type:").
+				Title("Effect command type:").
 				Options(
 					huh.NewOption("give - give an effect to entity", "give"),
 					huh.NewOption("clear - clear effect(s)", "clear"),
@@ -450,6 +452,8 @@ var createCmd = &cobra.Command{
 			if err != nil {
 				return
 			}
+
+			fmt.Println(color.BlueString("Effect command type:"), greenBold.Sprint(effType))
 
 			target, err := addSelectorsQuestion()
 			if err != nil {
@@ -468,15 +472,17 @@ var createCmd = &cobra.Command{
 					Options(buildSelectOptions(core.Effects)...).
 					Value(&effName).
 					Filtering(true).
+					Height(12).
 					Run()
 				if err != nil {
 					return
 				}
 				effBuilder.Effect = effName
+				fmt.Println(color.BlueString("Target effect:"), greenBold.Sprint(effName))
 
 				var durOption string
 				err = huh.NewSelect[string]().
-					Title("Specify duration option:").
+					Title("Select duration option:").
 					Options(
 						huh.NewOption("infinite - Set the duration to infinite", "infinite"),
 						huh.NewOption("seconds - Set the duration in seconds", "seconds"),
@@ -486,6 +492,8 @@ var createCmd = &cobra.Command{
 				if err != nil {
 					return
 				}
+
+				fmt.Println(color.BlueString("Effect duration option:"), greenBold.Sprint(durOption))
 
 				if durOption == "seconds" {
 					var secStr string
@@ -503,6 +511,8 @@ var createCmd = &cobra.Command{
 						return
 					}
 					effBuilder.Duration = secStr
+					fmt.Println(color.BlueString("Effect duration:"), greenBold.Sprint(secStr))
+
 				} else {
 					effBuilder.Duration = "infinite"
 				}
@@ -524,6 +534,8 @@ var createCmd = &cobra.Command{
 				}
 				effBuilder.Amplifier = ampStr
 
+				fmt.Println(color.BlueString("Effect amplifier:"), greenBold.Sprint(ampStr))
+
 				var hideParticles bool
 				err = huh.NewConfirm().
 					Title("Do you want to hide effect particles?").
@@ -533,6 +545,20 @@ var createCmd = &cobra.Command{
 					return
 				}
 				effBuilder.HideParticles = hideParticles
+
+				var hideParticlesTxt string
+				switch hideParticles {
+				case true:
+					{
+						hideParticlesTxt = "Yes"
+					}
+				case false:
+					{
+						hideParticlesTxt = "No"
+					}
+				}
+
+				fmt.Println(color.BlueString("Hide effect particles:"), greenBold.Sprint(hideParticlesTxt))
 
 			} else {
 				var clearAll bool
@@ -544,6 +570,20 @@ var createCmd = &cobra.Command{
 					return
 				}
 
+				var clearAllTxt string
+				switch clearAll {
+				case true:
+					{
+						clearAllTxt = "Yes"
+					}
+				case false:
+					{
+						clearAllTxt = "No"
+					}
+				}
+
+				fmt.Println(color.BlueString("Clear all effects:"), greenBold.Sprint(clearAllTxt))
+
 				if clearAll {
 					effBuilder.ClearAll = true
 				} else {
@@ -553,11 +593,13 @@ var createCmd = &cobra.Command{
 						Options(buildSelectOptions(core.Effects)...).
 						Value(&effName).
 						Filtering(true).
+						Height(12).
 						Run()
 					if err != nil {
 						return
 					}
 					effBuilder.Effect = effName
+					fmt.Println(color.BlueString("Target effect:"), greenBold.Sprint(effName))
 				}
 			}
 
@@ -580,10 +622,13 @@ var createCmd = &cobra.Command{
 				Options(choices...).
 				Value(&enchantment).
 				Filtering(true).
+				Height(12).
 				Run()
 			if err != nil {
 				return
 			}
+
+			fmt.Println(color.BlueString("Enchantment:"), greenBold.Sprint(enchantment))
 
 			// Find max level
 			maxLevel := 1
@@ -613,6 +658,8 @@ var createCmd = &cobra.Command{
 					return
 				}
 			}
+
+			fmt.Println(color.BlueString("Enchantment level:"), greenBold.Sprint(enchantLevel))
 
 			enchBuilder := core.EnchantCommand{
 				Target:      target,
@@ -663,6 +710,10 @@ func contains(arr []string, target string) bool {
 
 func promptCoordinates(title string) (string, error) {
 	var x, y, z string
+
+	fmt.Println()
+	fmt.Println(color.BlueString(title))
+
 	err := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("X coordinate").Value(&x).Placeholder("~"),
@@ -790,7 +841,8 @@ func addSelectorsQuestion() (string, error) {
 			}
 		}
 
-		fmt.Println(color.BlueString("Target:"), color.GreenString(targetType))
+		greenBold := color.New(color.FgGreen, color.Bold)
+		fmt.Println(color.BlueString("Target:"), greenBold.Sprint(targetType))
 
 		if !strings.HasPrefix(targetType, "@") {
 			fmt.Println(color.BlueString("Additional target selectors:"), color.GreenString("Skipped (Specific Player Name)"))
@@ -928,6 +980,7 @@ func selectItem() (string, error) {
 		Options(buildSelectOptions(core.Items)...).
 		Value(&itemName).
 		Filtering(true).
+		Height(12).
 		Run()
 	if err != nil {
 		return "", err
@@ -1083,6 +1136,7 @@ func addItemComponentsQuestion() (string, error) {
 					Options(append([]huh.Option[string]{huh.NewOption("OK", "OK")}, enchOptions...)...).
 					Value(&enchantName).
 					Filtering(true).
+					Height(12).
 					Run()
 				if err != nil || enchantName == "OK" {
 					break
@@ -1124,6 +1178,7 @@ func addItemComponentsQuestion() (string, error) {
 				Options(buildSelectOptions(core.Sounds)...).
 				Value(&sound).
 				Filtering(true).
+				Height(12).
 				Run()
 			if err == nil {
 				compVal = fmt.Sprintf(`break_sound="%s"`, sound)
@@ -1147,6 +1202,7 @@ func addItemComponentsQuestion() (string, error) {
 					Options(append([]huh.Option[string]{huh.NewOption("OK", "OK")}, buildSelectOptions(core.Blocks)...)...).
 					Value(&block).
 					Filtering(true).
+					Height(12).
 					Run()
 				if err != nil || block == "OK" {
 					break
@@ -1171,6 +1227,7 @@ func addItemComponentsQuestion() (string, error) {
 					Options(append([]huh.Option[string]{huh.NewOption("OK", "OK")}, buildSelectOptions(core.Blocks)...)...).
 					Value(&block).
 					Filtering(true).
+					Height(12).
 					Run()
 				if err != nil || block == "OK" {
 					break

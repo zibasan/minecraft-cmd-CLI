@@ -135,6 +135,7 @@ var blockRemoveCmd = &cobra.Command{
 			Options(choices...).
 			Value(&pick).
 			Filtering(true).
+			Height(12).
 			Run()
 
 		if err != nil {
@@ -283,6 +284,7 @@ var blockSearchCmd = &cobra.Command{
 				Options(choices...).
 				Value(&pick).
 				Filtering(true).
+				Height(12).
 				Run()
 
 			if err != nil {
