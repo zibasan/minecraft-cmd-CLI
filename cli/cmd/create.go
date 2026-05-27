@@ -52,6 +52,7 @@ var createCmd = &cobra.Command{
 			"item",
 			"effect",
 			"enchant",
+			"summon",
 		}
 
 		var commandType string
@@ -667,6 +668,41 @@ var createCmd = &cobra.Command{
 				Level:       enchantLevel,
 			}
 			generatedCommand = enchBuilder.Build()
+
+		case "summon":
+			var entity string
+			err = huh.NewSelect[string]().
+				Title("Entity to summon (type to filter e.g. zombie):").
+				Options(buildSelectOptions(core.Entities)...).
+				Value(&entity).
+				Filtering(true).
+				Height(12).
+				Run()
+			if err != nil {
+				return
+			}
+			fmt.Println(color.BlueString("Entity:"), greenBold.Sprint(entity))
+
+			pos, err := promptCoordinates("Enter spawn coordinates:")
+			if err != nil {
+				return
+			}
+			fmt.Println(color.BlueString("Spawn position:"), greenBold.Sprint(pos))
+
+			nbt, err := addEntityNbtQuestion()
+			if err != nil {
+				return
+			}
+			if nbt != "" {
+				fmt.Println(color.BlueString("NBT:"), greenBold.Sprint(nbt))
+			}
+
+			summonBuilder := core.SummonCommand{
+				Entity:   entity,
+				Position: pos,
+				NBT:      nbt,
+			}
+			generatedCommand = summonBuilder.Build()
 		}
 
 		finalCommand := core.FormatCommand(generatedCommand, !noSlashFlag)
@@ -1371,4 +1407,159 @@ func buildSelectOptions(list []string) []huh.Option[string] {
 		choices = append(choices, huh.NewOption(lbl, val))
 	}
 	return choices
+}
+
+var EntityNBTDescriptions = map[string]string{
+	"CustomName":          "Custom name of the entity",
+	"NoAI":                "Disable entity AI (does not move or attack)",
+	"Silent":              "Silence all sounds from this entity",
+	"Glowing":             "Make the entity outline glow",
+	"Invulnerable":        "Make the entity immune to all damage",
+	"PersistenceRequired": "Prevent the entity from despawning naturally",
+	"IsBaby":              "Spawn a baby version of the mob",
+	"Custom NBT":          "Enter raw custom NBT tag/string",
+}
+
+func addEntityNbtQuestion() (string, error) {
+	var addNbt bool
+	err := huh.NewConfirm().
+		Title("Add entity NBT property?").
+		Value(&addNbt).
+		Run()
+	if err != nil || !addNbt {
+		return "", err
+	}
+
+	var addedNbt []string
+
+	for {
+		available := []string{}
+		for k := range EntityNBTDescriptions {
+			already := false
+			for _, added := range addedNbt {
+				if strings.HasPrefix(added, k+":") || strings.Contains(added, k) {
+					already = true
+					break
+				}
+			}
+			if !already {
+				available = append(available, k)
+			}
+		}
+
+		choices := []string{}
+		for _, av := range available {
+			choices = append(choices, fmt.Sprintf("%s - %s", av, EntityNBTDescriptions[av]))
+		}
+		sort.Strings(choices)
+		choices = append(choices, "OK")
+
+		var selNbt string
+		err := huh.NewSelect[string]().
+			Title("Additional NBT properties (Select OK to finish):").
+			Options(huh.NewOptions(choices...)...).
+			Value(&selNbt).
+			Run()
+		if err != nil {
+			return "", err
+		}
+
+		nbtKey := strings.Split(selNbt, " ")[0]
+		if nbtKey == "OK" {
+			break
+		}
+
+		var nbtVal string
+		switch nbtKey {
+		case "CustomName":
+			var name string
+			err = huh.NewInput().Title("CustomName:").Value(&name).Run()
+			if err == nil && name != "" {
+				nbtVal = fmt.Sprintf(`CustomName:'"%s"'`, name)
+			}
+		case "NoAI":
+			var val bool
+			err = huh.NewConfirm().Title("NoAI:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "NoAI:1b"
+				} else {
+					nbtVal = "NoAI:0b"
+				}
+			}
+		case "Silent":
+			var val bool
+			err = huh.NewConfirm().Title("Silent:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "Silent:1b"
+				} else {
+					nbtVal = "Silent:0b"
+				}
+			}
+		case "Glowing":
+			var val bool
+			err = huh.NewConfirm().Title("Glowing:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "Glowing:1b"
+				} else {
+					nbtVal = "Glowing:0b"
+				}
+			}
+		case "Invulnerable":
+			var val bool
+			err = huh.NewConfirm().Title("Invulnerable:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "Invulnerable:1b"
+				} else {
+					nbtVal = "Invulnerable:0b"
+				}
+			}
+		case "PersistenceRequired":
+			var val bool
+			err = huh.NewConfirm().Title("PersistenceRequired:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "PersistenceRequired:1b"
+				} else {
+					nbtVal = "PersistenceRequired:0b"
+				}
+			}
+		case "IsBaby":
+			var val bool
+			err = huh.NewConfirm().Title("IsBaby:").Value(&val).Run()
+			if err == nil {
+				if val {
+					nbtVal = "IsBaby:1b"
+				} else {
+					nbtVal = "IsBaby:0b"
+				}
+			}
+		case "Custom NBT":
+			var raw string
+			err = huh.NewInput().
+				Title("Enter raw NBT (e.g. Attributes:[{Name:\"generic.max_health\",Base:20f}]):").
+				Value(&raw).
+				Run()
+			if err == nil && raw != "" {
+				nbtVal = raw
+			}
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		if nbtVal != "" {
+			addedNbt = append(addedNbt, nbtVal)
+		}
+	}
+
+	if len(addedNbt) == 0 {
+		return "", nil
+	}
+
+	return "{" + strings.Join(addedNbt, ",") + "}", nil
 }

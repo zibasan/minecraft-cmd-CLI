@@ -232,6 +232,29 @@ func (e *EnchantCommand) Build() string {
 	return fmt.Sprintf("enchant %s %s %s", e.Target, enchStr, e.Level)
 }
 
+// 10. Summon Command
+type SummonCommand struct {
+	Entity   string
+	Position string
+	NBT      string
+}
+
+func (s *SummonCommand) Build() string {
+	entityStr := s.Entity
+	if !strings.HasPrefix(entityStr, "minecraft:") {
+		entityStr = "minecraft:" + entityStr
+	}
+	posStr := ""
+	if s.Position != "" {
+		posStr = " " + s.Position
+	}
+	nbtStr := ""
+	if s.NBT != "" {
+		nbtStr = " " + s.NBT
+	}
+	return fmt.Sprintf("summon %s%s%s", entityStr, posStr, nbtStr)
+}
+
 func FilterBlocksByCategory(allBlocks []string, categoryKeywords []string) []string {
 	if len(categoryKeywords) == 0 {
 		return allBlocks

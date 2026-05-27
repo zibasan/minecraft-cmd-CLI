@@ -75,3 +75,18 @@ func TestIsValidPosition(t *testing.T) {
 		}
 	}
 }
+
+func TestSummonCommand(t *testing.T) {
+	cmd := SummonCommand{
+		Entity:   "zombie",
+		Position: "~ ~5 ~",
+		NBT:      "{IsBaby:1b}",
+	}
+
+	want := "summon minecraft:zombie ~ ~5 ~ {IsBaby:1b}"
+	got := cmd.Build()
+	if got != want {
+		t.Errorf("SummonCommand.Build() = %q; want %q", got, want)
+	}
+}
+

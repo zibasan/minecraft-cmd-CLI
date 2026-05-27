@@ -43,6 +43,7 @@ var (
 	Enchantments []EnchantmentData
 	Items        []string
 	Sounds       []string
+	Entities     []string
 )
 
 // LoadData reads and decodes the embedded JSON files into memory.
@@ -90,6 +91,15 @@ func LoadData() error {
 	}
 	if err := json.Unmarshal(soundBytes, &Sounds); err != nil {
 		return fmt.Errorf("failed to parse sounds.json: %w", err)
+	}
+
+	// 6. Entities
+	entityBytes, err := dataFS.ReadFile("data/entities.json")
+	if err != nil {
+		return fmt.Errorf("failed to read entities.json: %w", err)
+	}
+	if err := json.Unmarshal(entityBytes, &Entities); err != nil {
+		return fmt.Errorf("failed to parse entities.json: %w", err)
 	}
 
 	return nil
