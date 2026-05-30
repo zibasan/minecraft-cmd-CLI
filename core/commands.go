@@ -255,6 +255,37 @@ func (s *SummonCommand) Build() string {
 	return fmt.Sprintf("summon %s%s%s", entityStr, posStr, nbtStr)
 }
 
+type NbtTagOption struct {
+	Key          string   // NBTのキー名（例: "NoAI"）
+	Label        string   // 画面に表示する日本語名
+	Description  string   // タグの詳しい解説
+	ApplicableTo []string // 適用可能なエンティティIDのリスト（空配列の場合はすべてのエンティティで共通して利用可能とする）
+}
+
+var NbtMasterList = []NbtTagOption{
+	{Key: "NoAI", Label: "NoAI - Disable entity AI (does not move or attack)", Description: "AIを無効化 (NoAI)", ApplicableTo: nil},
+	{Key: "Invulnerable", Label: "Invulnerable - Immune to all damage", Description: "無敵化 (Invulnerable)", ApplicableTo: nil},
+	{Key: "NoGravity", Label: "NoGravity - Disable gravity", Description: "重力無効 (NoGravity)", ApplicableTo: nil},
+	{Key: "Silent", Label: "Silent - Silence all sounds from this entity", Description: "消音 (Silent)", ApplicableTo: nil},
+	{Key: "Glowing", Label: "Glowing - Make the entity outline glow", Description: "発光 (Glowing)", ApplicableTo: nil},
+	{Key: "PersistenceRequired", Label: "PersistenceRequired - Prevent despawning naturally", Description: "デスポーン防止", ApplicableTo: nil},
+	{Key: "IsBaby", Label: "IsBaby - Spawn as a baby mob", Description: "子供化 (IsBaby)", ApplicableTo: []string{"zombie", "zombie_villager"}},
+	{Key: "powered", Label: "powered - Charge the creeper", Description: "帯電状態 (powered)", ApplicableTo: []string{"creeper"}},
+	{Key: "Size", Label: "Size - Set size of slime/magmacube", Description: "サイズ変更 (Size)", ApplicableTo: []string{"slime", "magma_cube"}},
+	{Key: "ShowArms", Label: "ShowArms - Display arms on armor stand", Description: "腕を表示する (ShowArms)", ApplicableTo: []string{"armor_stand"}},
+}
+
+func AssembleNbtString(keys []string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s:1b", k))
+	}
+	return "{" + strings.Join(parts, ",") + "}"
+}
+
 func FilterBlocksByCategory(allBlocks []string, categoryKeywords []string) []string {
 	if len(categoryKeywords) == 0 {
 		return allBlocks

@@ -90,3 +90,22 @@ func TestSummonCommand(t *testing.T) {
 	}
 }
 
+func TestAssembleNbtString(t *testing.T) {
+	tests := []struct {
+		keys []string
+		want string
+	}{
+		{[]string{}, ""},
+		{[]string{"NoAI"}, "{NoAI:1b}"},
+		{[]string{"NoAI", "Silent"}, "{NoAI:1b,Silent:1b}"},
+	}
+
+	for _, tt := range tests {
+		got := AssembleNbtString(tt.keys)
+		if got != tt.want {
+			t.Errorf("AssembleNbtString(%v) = %q; want %q", tt.keys, got, tt.want)
+		}
+	}
+}
+
+
