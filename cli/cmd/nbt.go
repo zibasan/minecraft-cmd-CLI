@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
@@ -128,54 +129,24 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 				continue
 			}
 
-			for {
-				if len(configuredCustom) == 0 {
-					break
-				}
+			ti := textinput.New()
+			ti.Placeholder = "New value"
+			ti.CharLimit = 156
+			ti.Width = 40
 
-				m := addedTagsModel{
-					tags: configuredCustom,
-				}
-
-				p := tea.NewProgram(m)
-				res, err := p.Run()
-				if err != nil {
-					return "", err
-				}
-
-				finalModel := res.(addedTagsModel)
-				if finalModel.action == "back" || finalModel.action == "" {
-					break
-				}
-
-				idx := finalModel.selected
-				selectedTag := configuredCustom[idx]
-
-				if finalModel.action == "edit" {
-					var newVal string
-					inputTitle := fmt.Sprintf("Enter new value for %s:", selectedTag.Key)
-					err = huh.NewInput().
-						Title(inputTitle).
-						Value(&newVal).
-						Run()
-					if err != nil {
-						return "", err
-					}
-					newVal = strings.TrimSpace(newVal)
-					if newVal != "" {
-						if selectedTag.Type == "string" {
-							if !strings.HasPrefix(newVal, "'") && !strings.HasPrefix(newVal, "\"") {
-								newVal = fmt.Sprintf(`'"%s"'`, newVal)
-							}
-						}
-						configuredCustom[idx].Value = newVal
-						fmt.Println(color.GreenString("Updated %s to %s", selectedTag.Key, newVal))
-					}
-				} else if finalModel.action == "delete" {
-					configuredCustom = append(configuredCustom[:idx], configuredCustom[idx+1:]...)
-					fmt.Println(color.GreenString("Deleted tag %s. It is now back in the available list.", selectedTag.Key))
-				}
+			m := addedTagsModel{
+				tags:      configuredCustom,
+				textInput: ti,
 			}
+
+			p := tea.NewProgram(m, tea.WithAltScreen())
+			res, err := p.Run()
+			if err != nil {
+				return "", err
+			}
+
+			finalModel := res.(addedTagsModel)
+			configuredCustom = finalModel.tags
 
 		} else if choice == "__BOOLEAN__" {
 			var boolOpts []huh.Option[string]
@@ -313,12 +284,12 @@ func MergeNbtStrings(assembled, custom string) string {
 	return "{" + assembledContent + "," + customContent + "}"
 }
 
-// bubbletea model for added custom NBT tags list to support keys "e" and "d"
+// bubbletea model for added custom NBT tags list to support keys "e" and "d" with inline textinput
 type addedTagsModel struct {
-	tags     []CustomNbtVal
-	cursor   int
-	action   string // "edit", "delete", "back"
-	selected int
+	tags      []CustomNbtVal
+	cursor    int
+	textInput textinput.Model
+	editing   bool
 }
 
 func (m addedTagsModel) Init() tea.Cmd {
@@ -326,11 +297,41 @@ func (m addedTagsModel) Init() tea.Cmd {
 }
 
 func (m addedTagsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	if m.editing {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "enter":
+				val := strings.TrimSpace(m.textInput.Value())
+				if val != "" {
+					selectedTag := m.tags[m.cursor]
+					if selectedTag.Type == "string" {
+						if !strings.HasPrefix(val, "'") && !strings.HasPrefix(val, "\"") {
+							val = fmt.Sprintf(`'"%s"'`, val)
+						}
+					}
+					m.tags[m.cursor].Value = val
+				}
+				m.editing = false
+				m.textInput.Blur()
+				return m, nil
+
+			case "esc":
+				m.editing = false
+				m.textInput.Blur()
+				return m, nil
+			}
+		}
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q", "esc":
-			m.action = "back"
+		case "ctrl+c", "q", "esc", "enter":
 			return m, tea.Quit
 
 		case "up", "k":
@@ -343,22 +344,23 @@ func (m addedTagsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
-		case "enter":
-			m.action = "back"
-			return m, tea.Quit
-
 		case "e":
 			if len(m.tags) > 0 {
-				m.action = "edit"
-				m.selected = m.cursor
-				return m, tea.Quit
+				m.editing = true
+				m.textInput.SetValue(m.tags[m.cursor].Value)
+				m.textInput.Focus()
+				return m, textinput.Blink
 			}
 
 		case "d":
 			if len(m.tags) > 0 {
-				m.action = "delete"
-				m.selected = m.cursor
-				return m, tea.Quit
+				m.tags = append(m.tags[:m.cursor], m.tags[m.cursor+1:]...)
+				if m.cursor >= len(m.tags) && m.cursor > 0 {
+					m.cursor = len(m.tags) - 1
+				}
+				if len(m.tags) == 0 {
+					return m, tea.Quit
+				}
 			}
 		}
 	}
@@ -384,7 +386,14 @@ func (m addedTagsModel) View() string {
 		}
 	}
 
-	s.WriteString("\n  " + color.HiBlackString("(press 'e' to edit, 'd' to delete, 'q' or 'enter' to go back)") + "\n\n")
+	if m.editing {
+		s.WriteString("\n  " + color.GreenString("Editing value for "+m.tags[m.cursor].Key+":") + "\n")
+		s.WriteString("  " + m.textInput.View() + "\n")
+		s.WriteString("\n  " + color.HiBlackString("(press 'enter' to save, 'esc' to cancel)") + "\n")
+	} else {
+		s.WriteString("\n  " + color.HiBlackString("(press 'e' to edit, 'd' to delete, 'q' or 'enter' to go back)") + "\n")
+	}
+
 	return s.String()
 }
 
