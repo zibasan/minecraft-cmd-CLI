@@ -129,24 +129,58 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 				continue
 			}
 
-			ti := textinput.New()
-			ti.Placeholder = "New value"
-			ti.CharLimit = 156
-			ti.Width = 40
+			for {
+				if len(configuredCustom) == 0 {
+					break
+				}
 
-			m := addedTagsModel{
-				tags:      configuredCustom,
-				textInput: ti,
+				ti := textinput.New()
+				ti.Placeholder = "New value"
+				ti.CharLimit = 156
+				ti.Width = 40
+
+				m := addedTagsModel{
+					tags:      configuredCustom,
+					textInput: ti,
+				}
+
+				p := tea.NewProgram(m, tea.WithAltScreen())
+				res, err := p.Run()
+				if err != nil {
+					return "", err
+				}
+
+				finalModel := res.(addedTagsModel)
+				configuredCustom = finalModel.tags
+
+				if finalModel.action == "edit_huh" {
+					idx := finalModel.selected
+					selectedTag := configuredCustom[idx]
+
+					if selectedTag.Type == "raw" {
+						var key, rawVal string
+						err = huh.NewForm(
+							huh.NewGroup(
+								huh.NewInput().Title("Raw NBT Key (e.g. Attributes)").Value(&key).Placeholder(selectedTag.Key),
+								huh.NewInput().Title("Raw NBT Value (e.g. [{Name:\"generic.max_health\",Base:20f}])").Value(&rawVal).Placeholder(selectedTag.Value),
+							),
+						).Run()
+						if err == nil {
+							key = strings.TrimSpace(key)
+							rawVal = strings.TrimSpace(rawVal)
+							if key != "" && rawVal != "" {
+								configuredCustom[idx].Key = key
+								configuredCustom[idx].Value = rawVal
+								fmt.Println(color.GreenString("Updated %s to %s", key, rawVal))
+							}
+						}
+					}
+					continue
+				}
+
+				break
 			}
-
-			p := tea.NewProgram(m, tea.WithAltScreen())
-			res, err := p.Run()
-			if err != nil {
-				return "", err
-			}
-
-			finalModel := res.(addedTagsModel)
-			configuredCustom = finalModel.tags
+			continue
 
 		} else if choice == "__BOOLEAN__" {
 			var boolOpts []huh.Option[string]
@@ -285,12 +319,18 @@ func MergeNbtStrings(assembled, custom string) string {
 	return "{" + assembledContent + "," + customContent + "}"
 }
 
+func isNbtHuhType(optType string) bool {
+	return optType == "raw"
+}
+
 // bubbletea model for added custom NBT tags list to support keys "e" and "d" with inline textinput
 type addedTagsModel struct {
 	tags      []CustomNbtVal
 	cursor    int
 	textInput textinput.Model
 	editing   bool
+	action    string // "edit_huh", "back", etc.
+	selected  int    // index of tag to edit via huh
 }
 
 func (m addedTagsModel) Init() tea.Cmd {
@@ -333,6 +373,7 @@ func (m addedTagsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc", "enter":
+			m.action = "back"
 			return m, tea.Quit
 
 		case "up", "k":
@@ -347,10 +388,17 @@ func (m addedTagsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if len(m.tags) > 0 {
-				m.editing = true
-				m.textInput.SetValue(m.tags[m.cursor].Value)
-				m.textInput.Focus()
-				return m, textinput.Blink
+				tag := m.tags[m.cursor]
+				if isNbtHuhType(tag.Type) {
+					m.action = "edit_huh"
+					m.selected = m.cursor
+					return m, tea.Quit
+				} else {
+					m.editing = true
+					m.textInput.SetValue(m.tags[m.cursor].Value)
+					m.textInput.Focus()
+					return m, textinput.Blink
+				}
 			}
 
 		case "d":

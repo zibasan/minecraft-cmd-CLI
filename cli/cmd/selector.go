@@ -183,24 +183,63 @@ func addSelectorsQuestion() (string, error) {
 					continue
 				}
 
-				ti := textinput.New()
-				ti.Placeholder = "New value"
-				ti.CharLimit = 156
-				ti.Width = 40
+				for {
+					if len(configuredCustom) == 0 {
+						break
+					}
 
-				m := addedSelectorsModel{
-					options:   configuredCustom,
-					textInput: ti,
+					ti := textinput.New()
+					ti.Placeholder = "New value"
+					ti.CharLimit = 156
+					ti.Width = 40
+
+					m := addedSelectorsModel{
+						options:   configuredCustom,
+						textInput: ti,
+					}
+
+					p := tea.NewProgram(m, tea.WithAltScreen())
+					res, err := p.Run()
+					if err != nil {
+						return "", err
+					}
+
+					finalModel := res.(addedSelectorsModel)
+					configuredCustom = finalModel.options
+
+					if finalModel.action == "edit_huh" {
+						idx := finalModel.selected
+						selKey := configuredCustom[idx].Key
+						var val string
+						var err error
+
+						switch selKey {
+						case "gamemode":
+							err = huh.NewSelect[string]().
+								Title("Player gamemode:").
+								Options(huh.NewOptions("survival", "creative", "adventure", "spectator")...).
+								Value(&val).
+								Run()
+						case "sort":
+							err = huh.NewSelect[string]().
+								Title("Sort order:").
+								Options(huh.NewOptions("nearest", "furthest", "random", "arbitrary")...).
+								Value(&val).
+								Run()
+						}
+
+						if err == nil {
+							val = strings.TrimSpace(val)
+							if val != "" {
+								configuredCustom[idx].Value = val
+								fmt.Println(color.GreenString("Updated %s to %s", selKey, val))
+							}
+						}
+						continue
+					}
+
+					break
 				}
-
-				p := tea.NewProgram(m, tea.WithAltScreen())
-				res, err := p.Run()
-				if err != nil {
-					return "", err
-				}
-
-				finalModel := res.(addedSelectorsModel)
-				configuredCustom = finalModel.options
 				continue
 			}
 
@@ -262,12 +301,18 @@ func addSelectorsQuestion() (string, error) {
 	}
 }
 
+func isSelectorHuhType(key string) bool {
+	return key == "gamemode" || key == "sort"
+}
+
 // bubbletea model for added custom target selector parameters
 type addedSelectorsModel struct {
 	options   []CustomSelectorVal
 	cursor    int
 	textInput textinput.Model
 	editing   bool
+	action    string // "edit_huh", "back", etc.
+	selected  int    // index of option to edit via huh
 }
 
 func (m addedSelectorsModel) Init() tea.Cmd {
@@ -304,6 +349,7 @@ func (m addedSelectorsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc", "enter":
+			m.action = "back"
 			return m, tea.Quit
 
 		case "up", "k":
@@ -318,10 +364,17 @@ func (m addedSelectorsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if len(m.options) > 0 {
-				m.editing = true
-				m.textInput.SetValue(m.options[m.cursor].Value)
-				m.textInput.Focus()
-				return m, textinput.Blink
+				key := m.options[m.cursor].Key
+				if isSelectorHuhType(key) {
+					m.action = "edit_huh"
+					m.selected = m.cursor
+					return m, tea.Quit
+				} else {
+					m.editing = true
+					m.textInput.SetValue(m.options[m.cursor].Value)
+					m.textInput.Focus()
+					return m, textinput.Blink
+				}
 			}
 
 		case "d":
