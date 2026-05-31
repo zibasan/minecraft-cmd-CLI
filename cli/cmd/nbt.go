@@ -181,7 +181,8 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 			}
 
 			var val string
-			if targetOpt.Type == "string" {
+			switch targetOpt.Type {
+			case "string":
 				err = huh.NewInput().
 					Title(fmt.Sprintf("Enter string value for %s:", targetOpt.Key)).
 					Value(&val).
@@ -192,7 +193,7 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 						val = fmt.Sprintf(`'"%s"'`, val)
 					}
 				}
-			} else if targetOpt.Type == "int" {
+			case "int":
 				err = huh.NewInput().
 					Title(fmt.Sprintf("Enter integer value for %s:", targetOpt.Key)).
 					Value(&val).
@@ -207,7 +208,7 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 				if err == nil {
 					val = strings.TrimSpace(val)
 				}
-			} else if targetOpt.Type == "raw" {
+			case "raw":
 				var key, rawVal string
 				err = huh.NewForm(
 					huh.NewGroup(
@@ -369,7 +370,7 @@ func (m addedTagsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m addedTagsModel) View() string {
 	var s strings.Builder
-	s.WriteString("\n  " + color.CyanString("Configure Added NBT Tags:") + "\n\n")
+	fmt.Fprintf(&s, "\n  %s\n\n", color.CyanString("Configure Added NBT Tags:"))
 
 	if len(m.tags) == 0 {
 		s.WriteString("    No NBT tags configured yet.\n")
@@ -387,11 +388,11 @@ func (m addedTagsModel) View() string {
 	}
 
 	if m.editing {
-		s.WriteString("\n  " + color.GreenString("Editing value for "+m.tags[m.cursor].Key+":") + "\n")
-		s.WriteString("  " + m.textInput.View() + "\n")
-		s.WriteString("\n  " + color.HiBlackString("(press 'enter' to save, 'esc' to cancel)") + "\n")
+		fmt.Fprintf(&s, "\n  %s\n", color.GreenString("Editing value for %s:", m.tags[m.cursor].Key))
+		fmt.Fprintf(&s, "  %s\n", m.textInput.View())
+		fmt.Fprintf(&s, "\n  %s\n", color.HiBlackString("(press 'enter' to save, 'esc' to cancel)"))
 	} else {
-		s.WriteString("\n  " + color.HiBlackString("(press 'e' to edit, 'd' to delete, 'q' or 'enter' to go back)") + "\n")
+		fmt.Fprintf(&s, "\n  %s\n", color.HiBlackString("(press 'e' to edit, 'd' to delete, 'q' or 'enter' to go back)"))
 	}
 
 	return s.String()
