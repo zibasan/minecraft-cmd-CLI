@@ -263,6 +263,12 @@ type NbtTagOption struct {
 	Type         string   // "boolean", "string", "int", "raw"
 }
 
+var breedableMobs = []string{
+	"axolotl", "bee", "camel", "cat", "chicken", "cow", "donkey", "fox", "frog", "goat",
+	"hoglin", "horse", "llama", "mooshroom", "mule", "ocelot", "panda", "pig", "rabbit",
+	"sheep", "sniffer", "strider", "trader_llama", "turtle", "villager", "wolf",
+}
+
 var NbtMasterList = []NbtTagOption{
 	// 1. 全エンティティ共通 NBT
 	{Key: "NoAI", Label: "NoAI - Disable entity AI (does not move or attack)", Description: "AIを無効化 (NoAI)", ApplicableTo: nil, Type: "boolean"},
@@ -284,7 +290,13 @@ var NbtMasterList = []NbtTagOption{
 	{Key: "HandItems", Label: "HandItems - List of items held in hands", Description: "手持ちアイテム（例: [{id:\"minecraft:diamond_sword\",Count:1b},{}]）", ApplicableTo: nil, Type: "raw"},
 	{Key: "ArmorItems", Label: "ArmorItems - List of equipped armor items", Description: "防具装備（例: [{},{},{},{id:\"minecraft:iron_helmet\",Count:1b}]）", ApplicableTo: nil, Type: "raw"},
 
-	// 3. 特定Mob固有 NBT
+	// 3. 繁殖可能Mob共通 NBT
+	{Key: "Age", Label: "Age - Age of the mob (negative for baby, positive for breeding cooldown)", Description: "年齢/成長度 (Age)", ApplicableTo: breedableMobs, Type: "int"},
+	{Key: "ForcedAge", Label: "ForcedAge - Ticks to force baby size until automatic growth resume", Description: "強制年齢維持時間 (ForcedAge)", ApplicableTo: breedableMobs, Type: "int"},
+	{Key: "InLove", Label: "InLove - Ticks the mob remains in breeding mode", Description: "繁殖モード残り時間 (InLove)", ApplicableTo: breedableMobs, Type: "int"},
+	{Key: "LoveCause", Label: "LoveCause - UUID of the player who caused the breeding mode", Description: "繁殖原因プレイヤーUUID (LoveCause)", ApplicableTo: breedableMobs, Type: "string"},
+
+	// 4. 特定Mob固有 NBT
 	{Key: "IsBaby", Label: "IsBaby - Spawn as a baby mob", Description: "子供化 (IsBaby)", ApplicableTo: []string{"zombie", "zombie_villager", "husk", "drowned", "piglin", "zombified_piglin", "hoglin", "zoglin"}, Type: "boolean"},
 	{Key: "powered", Label: "powered - Charge the creeper", Description: "帯電状態 (powered)", ApplicableTo: []string{"creeper"}, Type: "boolean"},
 	{Key: "ExplosionRadius", Label: "ExplosionRadius - Explosion radius of creeper", Description: "爆発半径 (ExplosionRadius)", ApplicableTo: []string{"creeper"}, Type: "int"},
@@ -297,12 +309,32 @@ var NbtMasterList = []NbtTagOption{
 	{Key: "Small", Label: "Small - Make armor stand small", Description: "サイズを小さくする (Small)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
 	{Key: "carriedBlockState", Label: "carriedBlockState - Block carried by enderman", Description: "持ち運んでいるブロック（例: {Name:\"minecraft:grass_block\"}）", ApplicableTo: []string{"enderman"}, Type: "raw"},
 	{Key: "HasNectar", Label: "HasNectar - Whether the bee has nectar", Description: "花蜜を持っているか (HasNectar)", ApplicableTo: []string{"bee"}, Type: "boolean"},
-	{Key: "CollarColor", Label: "CollarColor - Dye color of wolf collar (0-15)", Description: "首輪の色（0-15）(CollarColor)", ApplicableTo: []string{"wolf"}, Type: "int"},
-	{Key: "variant", Label: "variant - Variant type of frog or other mobs", Description: "種類/バリアント（例: minecraft:temperate）", ApplicableTo: []string{"frog", "llama", "trader_llama"}, Type: "string"},
+	{Key: "HasStung", Label: "HasStung - Whether the bee has stung a player (will die soon)", Description: "プレイヤー刺傷済みか (HasStung)", ApplicableTo: []string{"bee"}, Type: "boolean"},
+	{Key: "TicksSincePollination", Label: "TicksSincePollination - Ticks since the bee last pollinated a flower", Description: "最終受粉からの時間 (TicksSincePollination)", ApplicableTo: []string{"bee"}, Type: "int"},
+	{Key: "HasLeftHorn", Label: "HasLeftHorn - Whether the goat has its left horn", Description: "左の角があるか (HasLeftHorn)", ApplicableTo: []string{"goat"}, Type: "boolean"},
+	{Key: "HasRightHorn", Label: "HasRightHorn - Whether the goat has its right horn", Description: "右の角があるか (HasRightHorn)", ApplicableTo: []string{"goat"}, Type: "boolean"},
+	{Key: "IsScreamingGoat", Label: "IsScreamingGoat - Whether the goat is a screaming goat variant", Description: "叫ぶヤギか (IsScreamingGoat)", ApplicableTo: []string{"goat"}, Type: "boolean"},
+	{Key: "Sleeping", Label: "Sleeping - Whether the fox is sleeping", Description: "睡眠中か (Sleeping)", ApplicableTo: []string{"fox"}, Type: "boolean"},
+	{Key: "Sitting", Label: "Sitting - Whether the fox is sitting", Description: "お座り中か (Sitting)", ApplicableTo: []string{"fox"}, Type: "boolean"},
+	{Key: "MainGene", Label: "MainGene - Dominant genetic trait of the panda", Description: "主遺伝子 (MainGene)", ApplicableTo: []string{"panda"}, Type: "string"},
+	{Key: "HiddenGene", Label: "HiddenGene - Recessive genetic trait of the panda", Description: "隠れ遺伝子 (HiddenGene)", ApplicableTo: []string{"panda"}, Type: "string"},
+	{Key: "Angry", Label: "Angry - Whether the wolf is angry", Description: "怒り状態か (Angry)", ApplicableTo: []string{"wolf"}, Type: "boolean"},
+	{Key: "Tamed", Label: "Tamed - Whether the animal is tamed", Description: "手懐け状態か (Tamed)", ApplicableTo: []string{"wolf", "cat"}, Type: "boolean"},
+	{Key: "CollarColor", Label: "CollarColor - Dye color of wolf/cat collar (0-15)", Description: "首輪の色（0-15）(CollarColor)", ApplicableTo: []string{"wolf", "cat"}, Type: "int"},
+	{Key: "variant", Label: "variant - Variant type of frog, cat, or llama", Description: "種類/バリアント（例: minecraft:temperate）", ApplicableTo: []string{"frog", "llama", "trader_llama", "cat"}, Type: "string"},
+	{Key: "Tame", Label: "Tame - Whether the horse is tame", Description: "手懐け状態か (Tame)", ApplicableTo: []string{"horse", "donkey", "mule", "llama", "trader_llama", "camel", "skeleton_horse", "zombie_horse"}, Type: "boolean"},
+	{Key: "Temper", Label: "Temper - Temper value (0-100), higher makes taming easier", Description: "気性値 (Temper)", ApplicableTo: []string{"horse", "donkey", "mule", "llama", "trader_llama", "camel", "skeleton_horse", "zombie_horse"}, Type: "int"},
+	{Key: "SaddleItem", Label: "SaddleItem - Item component for the horse's saddle", Description: "鞍アイテム (SaddleItem)", ApplicableTo: []string{"horse", "donkey", "mule", "llama", "trader_llama", "camel", "skeleton_horse", "zombie_horse"}, Type: "raw"},
+	{Key: "ChestedHorse", Label: "ChestedHorse - Whether the horse has chests equipped", Description: "チェスト装着済みか (ChestedHorse)", ApplicableTo: []string{"donkey", "mule", "llama", "trader_llama"}, Type: "boolean"},
+	{Key: "State", Label: "State - Current behavioral state of the sniffer", Description: "行動状態 (State)", ApplicableTo: []string{"sniffer"}, Type: "string"},
+	{Key: "PlayerCreated", Label: "PlayerCreated - Whether the iron golem was created by player", Description: "プレイヤー製ゴーレムか (PlayerCreated)", ApplicableTo: []string{"iron_golem"}, Type: "boolean"},
+	{Key: "Variant", Label: "Variant - Color variant of axolotl (0: pink, 1: brown, 2: gold, 3: cyan, 4: blue)", Description: "色バリアント（0-4）(Variant)", ApplicableTo: []string{"axolotl"}, Type: "int"},
+	{Key: "CanDuplicate", Label: "CanDuplicate - Whether the allay can duplicate using amethyst", Description: "複製可能か (CanDuplicate)", ApplicableTo: []string{"allay"}, Type: "boolean"},
+	{Key: "DuplicationCooldown", Label: "DuplicationCooldown - Cooldown ticks before allay can duplicate again", Description: "複製クールダウン時間 (DuplicationCooldown)", ApplicableTo: []string{"allay"}, Type: "int"},
 	{Key: "RabbitType", Label: "RabbitType - Type of rabbit (0-5, 99 for killer rabbit)", Description: "ウサギの種類 (RabbitType)", ApplicableTo: []string{"rabbit"}, Type: "int"},
 	{Key: "VillagerData", Label: "VillagerData - Professional stats of villager", Description: "村人のデータ（例: {profession:\"minecraft:farmer\",level:1}）", ApplicableTo: []string{"villager"}, Type: "raw"},
 
-	// 4. カスタム NBT (汎用)
+	// 5. カスタム NBT (汎用)
 	{Key: "Custom NBT", Label: "Custom NBT - Enter raw custom NBT string", Description: "カスタムNBT", ApplicableTo: nil, Type: "raw"},
 }
 
