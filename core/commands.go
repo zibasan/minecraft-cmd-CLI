@@ -264,20 +264,47 @@ type NbtTagOption struct {
 }
 
 var NbtMasterList = []NbtTagOption{
+	// 1. 全エンティティ共通 NBT
 	{Key: "NoAI", Label: "NoAI - Disable entity AI (does not move or attack)", Description: "AIを無効化 (NoAI)", ApplicableTo: nil, Type: "boolean"},
 	{Key: "Invulnerable", Label: "Invulnerable - Immune to all damage", Description: "無敵化 (Invulnerable)", ApplicableTo: nil, Type: "boolean"},
 	{Key: "NoGravity", Label: "NoGravity - Disable gravity", Description: "重力無効 (NoGravity)", ApplicableTo: nil, Type: "boolean"},
 	{Key: "Silent", Label: "Silent - Silence all sounds from this entity", Description: "消音 (Silent)", ApplicableTo: nil, Type: "boolean"},
 	{Key: "Glowing", Label: "Glowing - Make the entity outline glow", Description: "発光 (Glowing)", ApplicableTo: nil, Type: "boolean"},
-	{Key: "PersistenceRequired", Label: "PersistenceRequired - Prevent despawning naturally", Description: "デスポーン防止", ApplicableTo: nil, Type: "boolean"},
-	{Key: "IsBaby", Label: "IsBaby - Spawn as a baby mob", Description: "子供化 (IsBaby)", ApplicableTo: []string{"zombie", "zombie_villager"}, Type: "boolean"},
+	{Key: "PersistenceRequired", Label: "PersistenceRequired - Prevent despawning naturally", Description: "デスポーン防止 (PersistenceRequired)", ApplicableTo: nil, Type: "boolean"},
+	{Key: "CustomName", Label: "CustomName - Custom name of the entity", Description: "カスタム名 (CustomName)", ApplicableTo: nil, Type: "string"},
+	{Key: "CustomNameVisible", Label: "CustomNameVisible - Always show custom name", Description: "カスタム名を常時表示 (CustomNameVisible)", ApplicableTo: nil, Type: "boolean"},
+	{Key: "Fire", Label: "Fire - Number of ticks the entity is on fire", Description: "炎上時間（ticks）", ApplicableTo: nil, Type: "int"},
+	{Key: "PortalCooldown", Label: "PortalCooldown - Ticks before entity can use portal again", Description: "ポータル移動クールダウン（ticks）", ApplicableTo: nil, Type: "int"},
+	{Key: "Tags", Label: "Tags - List of custom tags on this entity", Description: "カスタムタグ（例: [\"tag1\", \"tag2\"]）", ApplicableTo: nil, Type: "raw"},
+
+	// 2. Mob / Living Entity 共通 NBT
+	{Key: "Health", Label: "Health - Current health value of the entity", Description: "体力値 (Health)", ApplicableTo: nil, Type: "int"},
+	{Key: "AbsorptionAmount", Label: "AbsorptionAmount - Extra absorption health", Description: "吸収体力値 (AbsorptionAmount)", ApplicableTo: nil, Type: "int"},
+	{Key: "LeftHanded", Label: "LeftHanded - Whether the entity is left-handed", Description: "左利きにする (LeftHanded)", ApplicableTo: nil, Type: "boolean"},
+	{Key: "HandItems", Label: "HandItems - List of items held in hands", Description: "手持ちアイテム（例: [{id:\"minecraft:diamond_sword\",Count:1b},{}]）", ApplicableTo: nil, Type: "raw"},
+	{Key: "ArmorItems", Label: "ArmorItems - List of equipped armor items", Description: "防具装備（例: [{},{},{},{id:\"minecraft:iron_helmet\",Count:1b}]）", ApplicableTo: nil, Type: "raw"},
+
+	// 3. 特定Mob固有 NBT
+	{Key: "IsBaby", Label: "IsBaby - Spawn as a baby mob", Description: "子供化 (IsBaby)", ApplicableTo: []string{"zombie", "zombie_villager", "husk", "drowned", "piglin", "zombified_piglin", "hoglin", "zoglin"}, Type: "boolean"},
 	{Key: "powered", Label: "powered - Charge the creeper", Description: "帯電状態 (powered)", ApplicableTo: []string{"creeper"}, Type: "boolean"},
+	{Key: "ExplosionRadius", Label: "ExplosionRadius - Explosion radius of creeper", Description: "爆発半径 (ExplosionRadius)", ApplicableTo: []string{"creeper"}, Type: "int"},
+	{Key: "Fuse", Label: "Fuse - Explosion delay ticks", Description: "爆発までの時間 (Fuse)", ApplicableTo: []string{"creeper", "tnt"}, Type: "int"},
+	{Key: "ignited", Label: "ignited - Auto ignite the creeper", Description: "即時点火 (ignited)", ApplicableTo: []string{"creeper"}, Type: "boolean"},
 	{Key: "Size", Label: "Size - Set size of slime/magmacube", Description: "サイズ変更 (Size)", ApplicableTo: []string{"slime", "magma_cube"}, Type: "int"},
 	{Key: "ShowArms", Label: "ShowArms - Display arms on armor stand", Description: "腕を表示する (ShowArms)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
-	{Key: "CustomName", Label: "CustomName - Custom name of the entity", Description: "カスタム名 (CustomName)", ApplicableTo: nil, Type: "string"},
+	{Key: "Invisible", Label: "Invisible - Make armor stand invisible", Description: "透明化 (Invisible)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
+	{Key: "NoBasePlate", Label: "NoBasePlate - Remove bottom plate of armor stand", Description: "底板非表示 (NoBasePlate)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
+	{Key: "Small", Label: "Small - Make armor stand small", Description: "サイズを小さくする (Small)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
+	{Key: "carriedBlockState", Label: "carriedBlockState - Block carried by enderman", Description: "持ち運んでいるブロック（例: {Name:\"minecraft:grass_block\"}）", ApplicableTo: []string{"enderman"}, Type: "raw"},
+	{Key: "HasNectar", Label: "HasNectar - Whether the bee has nectar", Description: "花蜜を持っているか (HasNectar)", ApplicableTo: []string{"bee"}, Type: "boolean"},
+	{Key: "CollarColor", Label: "CollarColor - Dye color of wolf collar (0-15)", Description: "首輪の色（0-15）(CollarColor)", ApplicableTo: []string{"wolf"}, Type: "int"},
+	{Key: "variant", Label: "variant - Variant type of frog or other mobs", Description: "種類/バリアント（例: minecraft:temperate）", ApplicableTo: []string{"frog", "llama", "trader_llama"}, Type: "string"},
+	{Key: "RabbitType", Label: "RabbitType - Type of rabbit (0-5, 99 for killer rabbit)", Description: "ウサギの種類 (RabbitType)", ApplicableTo: []string{"rabbit"}, Type: "int"},
+	{Key: "VillagerData", Label: "VillagerData - Professional stats of villager", Description: "村人のデータ（例: {profession:\"minecraft:farmer\",level:1}）", ApplicableTo: []string{"villager"}, Type: "raw"},
+
+	// 4. カスタム NBT (汎用)
 	{Key: "Custom NBT", Label: "Custom NBT - Enter raw custom NBT string", Description: "カスタムNBT", ApplicableTo: nil, Type: "raw"},
 }
-
 
 func AssembleNbtString(keys []string) string {
 	if len(keys) == 0 {
