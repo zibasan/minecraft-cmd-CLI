@@ -805,8 +805,6 @@ func mojangPlayerExists(name string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-
-
 func selectItem() (string, error) {
 	var itemName string
 	err := huh.NewSelect[string]().
@@ -837,6 +835,9 @@ func selectItem() (string, error) {
 		}
 	}
 
+	greenBold := color.New(color.FgGreen, color.Bold)
+	fmt.Println(color.BlueString("Item Components:"), greenBold.Sprint(componentsStr))
+
 	var amount string
 	err = huh.NewInput().
 		Title("Item amount (Press enter for default 1):").
@@ -865,8 +866,6 @@ func selectItem() (string, error) {
 	}
 	return fmt.Sprintf("%s %s", itemName, amount), nil
 }
-
-
 
 func getSlot() (string, error) {
 	slotOptions := []struct {
@@ -974,4 +973,3 @@ func buildSelectOptions(list []string) []huh.Option[string] {
 	}
 	return choices
 }
-
