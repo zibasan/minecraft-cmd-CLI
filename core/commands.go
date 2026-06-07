@@ -1,4 +1,4 @@
-﻿package core
+package core
 
 import (
 	"fmt"
@@ -255,12 +255,18 @@ func (s *SummonCommand) Build() string {
 	return fmt.Sprintf("summon %s%s%s", entityStr, posStr, nbtStr)
 }
 
+type NbtChoice struct {
+	Value string
+	Label string
+}
+
 type NbtTagOption struct {
-	Key          string   // NBTのキー名（例: "NoAI"）
-	Label        string   // 画面に表示する日本語名
-	Description  string   // タグの詳しい解説
-	ApplicableTo []string // 適用可能なエンティティIDのリスト（空配列はすべて）
-	Type         string   // "boolean", "int", "string", "raw"
+	Key          string      // NBTのキー名（例: "NoAI"）
+	Label        string      // 画面に表示する日本語名
+	Description  string      // タグの詳しい解説
+	ApplicableTo []string    // 適用可能なエンティティIDのリスト（空配列はすべて）
+	Type         string      // "boolean", "int", "string", "raw", "select"
+	Choices      []NbtChoice // 選択肢リスト ("select" の場合)
 }
 
 var breedableMobs = []string{
@@ -314,12 +320,58 @@ var NbtMasterList = []NbtTagOption{
 	{Key: "Small", Label: "Small - Make armor stand small", Description: "サイズを小さくする (Small)", ApplicableTo: []string{"armor_stand"}, Type: "boolean"},
 	{Key: "carriedBlockState", Label: "carriedBlockState - Block carried by enderman", Description: "持ち運んでいるブロック", ApplicableTo: []string{"enderman"}, Type: "raw"},
 	{Key: "HasNectar", Label: "HasNectar - Whether the bee has nectar", Description: "花蜜を持っているか (HasNectar)", ApplicableTo: []string{"bee"}, Type: "boolean"},
-	{Key: "CollarColor", Label: "CollarColor - Dye color of wolf/cat collar (0-15)", Description: "首輪の色（0-15）(CollarColor)", ApplicableTo: []string{"wolf", "cat"}, Type: "int"},
-	{Key: "variant", Label: "variant - Variant type of frog, cat, or llama", Description: "種類/バリアント（例: minecraft:temperate）", ApplicableTo: []string{"frog", "llama", "trader_llama", "cat"}, Type: "string"},
+	{Key: "CollarColor", Label: "CollarColor - Dye color of wolf/cat collar (0-15)", Description: "首輪の色（0-15）(CollarColor)", ApplicableTo: []string{"wolf", "cat"}, Type: "select", Choices: []NbtChoice{
+		{Value: "0", Label: "0 - 白 (White)"},
+		{Value: "1", Label: "1 - 橙 (Orange)"},
+		{Value: "2", Label: "2 - マゼンタ (Magenta)"},
+		{Value: "3", Label: "3 - 空色 (Light Blue)"},
+		{Value: "4", Label: "4 - 黄 (Yellow)"},
+		{Value: "5", Label: "5 - 黄緑 (Lime)"},
+		{Value: "6", Label: "6 - 桃 (Pink)"},
+		{Value: "7", Label: "7 - 灰色 (Gray)"},
+		{Value: "8", Label: "8 - 薄灰色 (Light Gray)"},
+		{Value: "9", Label: "9 - 青緑 (Cyan)"},
+		{Value: "10", Label: "10 - 紫 (Purple)"},
+		{Value: "11", Label: "11 - 青 (Blue)"},
+		{Value: "12", Label: "12 - 茶 (Brown)"},
+		{Value: "13", Label: "13 - 緑 (Green)"},
+		{Value: "14", Label: "14 - 赤 (Red)"},
+		{Value: "15", Label: "15 - 黒 (Black)"},
+	}},
+	{Key: "variant", Label: "variant - Frog variant type", Description: "カエルのバリアント (variant)", ApplicableTo: []string{"frog"}, Type: "select", Choices: []NbtChoice{
+		{Value: `'"minecraft:temperate"'`, Label: "minecraft:temperate (温帯/茶)"},
+		{Value: `'"minecraft:warm"'`, Label: "minecraft:warm (熱帯/白)"},
+		{Value: `'"minecraft:cold"'`, Label: "minecraft:cold (寒冷/緑)"},
+	}},
+	{Key: "variant", Label: "variant - Cat variant type", Description: "猫のバリアント (variant)", ApplicableTo: []string{"cat"}, Type: "select", Choices: []NbtChoice{
+		{Value: `'"minecraft:tabby"'`, Label: "minecraft:tabby (トラ猫)"},
+		{Value: `'"minecraft:tuxedo"'`, Label: "minecraft:tuxedo (タキシード)"},
+		{Value: `'"minecraft:red"'`, Label: "minecraft:red (茶トラ)"},
+		{Value: `'"minecraft:siamese"'`, Label: "minecraft:siamese (シャム)"},
+		{Value: `'"minecraft:british_shorthair"'`, Label: "minecraft:british_shorthair (ブリティッシュショートヘア)"},
+		{Value: `'"minecraft:calico"'`, Label: "minecraft:calico (三毛猫)"},
+		{Value: `'"minecraft:persian"'`, Label: "minecraft:persian (ペルシャ)"},
+		{Value: `'"minecraft:ragdoll"'`, Label: "minecraft:ragdoll (ラグドール)"},
+		{Value: `'"minecraft:white"'`, Label: "minecraft:white (白猫)"},
+		{Value: `'"minecraft:black"'`, Label: "minecraft:black (黒猫)"},
+		{Value: `'"minecraft:all_black"'`, Label: "minecraft:all_black (黒/ジェリー)"},
+	}},
+	{Key: "variant", Label: "variant - Llama variant type", Description: "ラマのバリアント (variant)", ApplicableTo: []string{"llama", "trader_llama"}, Type: "select", Choices: []NbtChoice{
+		{Value: "0", Label: "0 - クリーム色 (Creamy)"},
+		{Value: "1", Label: "1 - 白色 (White)"},
+		{Value: "2", Label: "2 - 茶色 (Brown)"},
+		{Value: "3", Label: "3 - 灰色 (Gray)"},
+	}},
 	{Key: "Angry", Label: "Angry - Whether the wolf is angry", Description: "怒り状態か (Angry)", ApplicableTo: []string{"wolf"}, Type: "boolean"},
-	{Key: "Tamed", Label: "Tamed - Whether the animal is tamed", Description: "手懐け状態か (Tamed)", ApplicableTo: []string{"wolf", "cat"}, Type: "boolean"},
+	{Key: "Tamed", Label: "Tamed - Whether the animal is tamed", Description: "手なずけ状態か (Tamed)", ApplicableTo: []string{"wolf", "cat"}, Type: "boolean"},
 	{Key: "ChestedHorse", Label: "ChestedHorse - Whether the horse has chests equipped", Description: "チェスト装着済みか (ChestedHorse)", ApplicableTo: []string{"donkey", "mule", "llama", "trader_llama"}, Type: "boolean"},
-	{Key: "Variant", Label: "Variant - Color variant of axolotl (0: pink, 1: wild (brown), 2: gold (yellow), 3: cyan, 4: blue).", Description: "色バリアント（0-4）(Variant)", ApplicableTo: []string{"axolotl"}, Type: "int"},
+	{Key: "Variant", Label: "Variant - Axolotl variant type", Description: "アホロートルのバリアント (Variant)", ApplicableTo: []string{"axolotl"}, Type: "select", Choices: []NbtChoice{
+		{Value: "0", Label: "0 - 桃 (Lucy)"},
+		{Value: "1", Label: "1 - 茶 (Wild)"},
+		{Value: "2", Label: "2 - 金 (Gold)"},
+		{Value: "3", Label: "3 - 水色 (Cyan)"},
+		{Value: "4", Label: "4 - 青 (Blue)"},
+	}},
 	{Key: "PlayerCreated", Label: "PlayerCreated - Whether the iron golem was created by player", Description: "プレイヤー製ゴーレムか (PlayerCreated)", ApplicableTo: []string{"iron_golem"}, Type: "boolean"},
 	{Key: "VillagerData", Label: "VillagerData - Professional stats of villager", Description: "村人のデータ（例: {profession:\"minecraft:farmer\",level:1}）", ApplicableTo: []string{"villager"}, Type: "raw"},
 

@@ -216,6 +216,19 @@ func PromptEntityNbt(selectedEntity string) (string, error) {
 
 			var val string
 			switch targetOpt.Type {
+			case "select":
+				var options []huh.Option[string]
+				for _, c := range targetOpt.Choices {
+					options = append(options, huh.NewOption(c.Label, c.Value))
+				}
+				err = huh.NewSelect[string]().
+					Title(fmt.Sprintf("Select value for %s:", targetOpt.Key)).
+					Options(options...).
+					Value(&val).
+					Run()
+				if err == nil {
+					val = strings.TrimSpace(val)
+				}
 			case "string":
 				err = huh.NewInput().
 					Title(fmt.Sprintf("Enter string value for %s:", targetOpt.Key)).
