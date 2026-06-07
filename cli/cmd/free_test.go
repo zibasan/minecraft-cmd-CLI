@@ -9,7 +9,7 @@ func TestGetHighlightAndSuggestionsGive(t *testing.T) {
 	_ = core.LoadData() // Ensure data is loaded
 
 	// Test case 1: Starting to type /give (incomplete)
-	styles, suggestions, preview := getHighlightAndSuggestions("/gi")
+	styles, suggestions, preview, _, _ := getHighlightAndSuggestions("/gi")
 	if len(styles) != 1 || styles[0].Text != "/gi" || styles[0].IsLiteral {
 		t.Errorf("expected styles for '/gi' to be non-literal, got: %+v", styles)
 	}
@@ -28,14 +28,14 @@ func TestGetHighlightAndSuggestionsGive(t *testing.T) {
 	}
 
 	// Test case 1b: Completed command name (should be literal)
-	styles, _, _ = getHighlightAndSuggestions("/give")
+	styles, _, _, _, _ = getHighlightAndSuggestions("/give")
 	if len(styles) != 1 || styles[0].Text != "/give" || !styles[0].IsLiteral {
 		t.Errorf("expected completed '/give' to be literal, got: %+v", styles)
 	}
 
 	// Test case 2: /give @p 
 	// Trailing space means we are waiting for the next argument (item)
-	styles, suggestions, _ = getHighlightAndSuggestions("/give @p ")
+	styles, suggestions, _, _, _ = getHighlightAndSuggestions("/give @p ")
 	if len(styles) != 2 {
 		t.Fatalf("expected 2 styles, got %d", len(styles))
 	}
@@ -55,7 +55,7 @@ func TestGetHighlightAndSuggestionsItem(t *testing.T) {
 	_ = core.LoadData()
 
 	// Test case 1: /item replace block ~ 
-	styles, _, _ := getHighlightAndSuggestions("/item replace block ~ ")
+	styles, _, _, _, _ := getHighlightAndSuggestions("/item replace block ~ ")
 	if len(styles) != 4 {
 		t.Fatalf("expected 4 styles, got %d: %+v", len(styles), styles)
 	}
@@ -82,7 +82,7 @@ func TestCombineCoordinates(t *testing.T) {
 	_ = core.LoadData()
 
 	// Test 1: Coordinate combining
-	styles, _, _ := getHighlightAndSuggestions("/summon zombie ~ ~5 ~ ")
+	styles, _, _, _, _ := getHighlightAndSuggestions("/summon zombie ~ ~5 ~ ")
 	if len(styles) != 3 {
 		t.Fatalf("expected 3 styles (command, entity, position), got %d: %+v", len(styles), styles)
 	}
@@ -102,7 +102,7 @@ func TestPrefixlessCompletion(t *testing.T) {
 	_ = core.LoadData()
 
 	// "/give @p diam" のようにプレフィックスなしで打ったとき
-	_, suggestions, _ := getHighlightAndSuggestions("/give @p diam")
+	_, suggestions, _, _, _ := getHighlightAndSuggestions("/give @p diam")
 	
 	// サジェストに "minecraft:diamond" または "minecraft:diamond_sword" が含まれているか
 	var foundDiamond bool
@@ -121,7 +121,7 @@ func TestSuggestionSorting(t *testing.T) {
 	_ = core.LoadData()
 
 	// "/g" に対するサジェストを抽出
-	_, suggestions, _ := getHighlightAndSuggestions("/g")
+	_, suggestions, _, _, _ := getHighlightAndSuggestions("/g")
 	if len(suggestions) < 2 {
 		t.Skip("not enough suggestions to verify sort order")
 	}
@@ -131,5 +131,41 @@ func TestSuggestionSorting(t *testing.T) {
 		if suggestions[i] > suggestions[i+1] {
 			t.Errorf("suggestions are not sorted: %q is before %q", suggestions[i], suggestions[i+1])
 		}
+	}
+}
+
+func TestErrorDetectionAndTypeGuidance(t *testing.T) {
+	_ = core.LoadData()
+
+	// 1. 構文エラーの検出テスト
+	// `/give @p invalid_item` の `invalid_item` はエラーになるべき
+	styles, _, _, errorIdx, currentParser := getHighlightAndSuggestions("/give @p invalid_item")
+	if errorIdx != 2 {
+		t.Errorf("expected errorIdx to be 2 for '/give @p invalid_item', got %d", errorIdx)
+	}
+	if len(styles) != 3 {
+		t.Fatalf("expected 3 styles, got %d", len(styles))
+	}
+	if !styles[2].IsError {
+		t.Errorf("expected 'invalid_item' to be marked as error, got %+v", styles[2])
+	}
+	if currentParser != "" {
+		t.Errorf("expected currentParser to be empty due to invalid input, got %q", currentParser)
+	}
+
+	// 2. 動的型ガイダンスのテスト
+	// `/give @p ` の直後は `minecraft:item_stack` になるべき
+	_, _, _, _, currentParser = getHighlightAndSuggestions("/give @p ")
+	expectedParser := "minecraft:item_stack"
+	if currentParser != expectedParser {
+		t.Errorf("expected currentParser for '/give @p ' to be %q, got %q", expectedParser, currentParser)
+	}
+
+	// 3. 正常な遷移時の型ガイダンス
+	// `/summon zombie ` の直後は `minecraft:vec3` になるべき
+	_, _, _, _, currentParser = getHighlightAndSuggestions("/summon zombie ")
+	expectedParser2 := "minecraft:vec3"
+	if currentParser != expectedParser2 {
+		t.Errorf("expected currentParser for '/summon zombie ' to be %q, got %q", expectedParser2, currentParser)
 	}
 }
