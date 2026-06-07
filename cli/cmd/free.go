@@ -58,6 +58,12 @@ var parserTypeNames = map[string]string{
 	"brigadier:bool":              "真偽値 (true / false)",
 }
 
+var commandDescriptions = map[string]string{
+	"give":   "プレイヤーにアイテムを与えます。",
+	"summon": "エンティティ（Mobやアイテムなど）を指定位置に召喚します。",
+	"item":   "ブロックやエンティティのインベントリ内のアイテムを置換または変更します。",
+}
+
 // getDynamicSuggestions returns dynamic autocomplete list based on brigadier parser types.
 func getDynamicSuggestions(parser string, registry string) []string {
 	switch parser {
@@ -689,6 +695,17 @@ func (m freeModel) renderTopArea(height int) string {
 
 	guide := getSyntaxGuide(string(m.input))
 
+	var cmdDesc string
+	cleanInput := strings.TrimSpace(strings.TrimPrefix(string(m.input), "/"))
+	if cleanInput != "" {
+		parts := strings.Split(cleanInput, " ")
+		cmdName := parts[0]
+		if desc, exists := commandDescriptions[cmdName]; exists {
+			grayStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA"))
+			cmdDesc = "\n" + grayStyle.Render("説明: "+desc)
+		}
+	}
+
 	var typeGuidance string
 	if m.currentParser != "" {
 		displayName := m.currentParser
@@ -699,7 +716,7 @@ func (m freeModel) renderTopArea(height int) string {
 		typeGuidance = "\n" + yellowStyle.Render("型: "+displayName)
 	}
 
-	content := guide + typeGuidance + "\n\n" + helpText
+	content := guide + cmdDesc + typeGuidance + "\n\n" + helpText
 
 	return lipgloss.NewStyle().
 		Height(height).
