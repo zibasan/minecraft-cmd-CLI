@@ -77,3 +77,42 @@ func TestGetHighlightAndSuggestionsItem(t *testing.T) {
 		t.Errorf("expected '~' to be dynamic arg 0, got: %+v", styles[3])
 	}
 }
+
+func TestCombineCoordinates(t *testing.T) {
+	_ = core.LoadData()
+
+	// Test 1: Coordinate combining
+	styles, _, _ := getHighlightAndSuggestions("/summon zombie ~ ~5 ~ ")
+	if len(styles) != 3 {
+		t.Fatalf("expected 3 styles (command, entity, position), got %d: %+v", len(styles), styles)
+	}
+
+	if styles[0].Text != "/summon" || !styles[0].IsLiteral {
+		t.Errorf("expected '/summon' to be literal, got: %+v", styles[0])
+	}
+	if styles[1].Text != "zombie" || styles[1].IsLiteral || styles[1].ArgIndex != 0 {
+		t.Errorf("expected 'zombie' to be dynamic arg 0, got: %+v", styles[1])
+	}
+	if styles[2].Text != "~ ~5 ~" || styles[2].IsLiteral || styles[2].ArgIndex != 1 {
+		t.Errorf("expected '~ ~5 ~' to be dynamic arg 1, got: %+v", styles[2])
+	}
+}
+
+func TestPrefixlessCompletion(t *testing.T) {
+	_ = core.LoadData()
+
+	// "/give @p diam" のようにプレフィックスなしで打ったとき
+	_, suggestions, _ := getHighlightAndSuggestions("/give @p diam")
+	
+	// サジェストに "minecraft:diamond" または "minecraft:diamond_sword" が含まれているか
+	var foundDiamond bool
+	for _, s := range suggestions {
+		if s == "minecraft:diamond" || s == "minecraft:diamond_sword" {
+			foundDiamond = true
+			break
+		}
+	}
+	if !foundDiamond {
+		t.Errorf("expected to find 'minecraft:diamond' or 'minecraft:diamond_sword' in suggestions for 'diam', got: %v", suggestions)
+	}
+}

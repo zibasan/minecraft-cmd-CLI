@@ -284,9 +284,43 @@ var commandTree = CommandNode{
 	},
 }
 
+// combineCoordinates joins consecutive coordinate tokens into a single word token.
+func combineCoordinates(rawWords []string) []string {
+	var result []string
+	n := len(rawWords)
+	for i := 0; i < n; {
+		w := rawWords[i]
+		if w == "" {
+			result = append(result, w)
+			i++
+			continue
+		}
+
+		if core.IsValidPositionToken(w) {
+			posParts := []string{w}
+			idx := i + 1
+			for idx < n && len(posParts) < 3 {
+				nextW := rawWords[idx]
+				if nextW != "" && core.IsValidPositionToken(nextW) {
+					posParts = append(posParts, nextW)
+					idx++
+				} else {
+					break
+				}
+			}
+			result = append(result, strings.Join(posParts, " "))
+			i = idx
+		} else {
+			result = append(result, w)
+			i++
+		}
+	}
+	return result
+}
+
 // getHighlightAndSuggestions parses input string against command tree to produce word styles, suggestions, and next syntax preview.
 func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
-	rawWords := strings.Split(input, " ")
+	rawWords := combineCoordinates(strings.Split(input, " "))
 	var styles []WordStyle
 	currentNode := &commandTree
 	argIdx := 0
@@ -349,7 +383,8 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 			if child.DynamicList != nil {
 				list := child.DynamicList()
 				for _, item := range list {
-					if strings.HasPrefix(item, lastWord) {
+					cleanItem := strings.TrimPrefix(item, "minecraft:")
+					if strings.HasPrefix(item, lastWord) || strings.HasPrefix(cleanItem, lastWord) {
 						suggestions = append(suggestions, item)
 					}
 				}
@@ -388,7 +423,7 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 // getStyledRunes parses runes input and maps each char to styledChar.
 func getStyledRunes(input []rune) []styledChar {
 	str := string(input)
-	rawWords := strings.Split(str, " ")
+	rawWords := combineCoordinates(strings.Split(str, " "))
 	wordStyles, _, _ := getHighlightAndSuggestions(str)
 
 	whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
@@ -633,13 +668,22 @@ func (m freeModel) renderSuggestArea() string {
 	highlightStyle := lipgloss.NewStyle().Background(lipgloss.Color("#55FFFF")).Foreground(lipgloss.Color("#000000"))
 	normalStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA"))
 
-	var lines []string
-	end := len(m.suggestions)
-	if end > 10 {
-		end = 10
+	maxVisible := 10
+	start := 0
+	if m.selectedSuggest >= maxVisible {
+		start = m.selectedSuggest - maxVisible + 1
+	}
+	end := start + maxVisible
+	if end > len(m.suggestions) {
+		end = len(m.suggestions)
+		start = end - maxVisible
+		if start < 0 {
+			start = 0
+		}
 	}
 
-	for i := 0; i < end; i++ {
+	var lines []string
+	for i := start; i < end; i++ {
 		s := m.suggestions[i]
 		if i == m.selectedSuggest {
 			lines = append(lines, highlightStyle.Render("  "+s+"  "))
