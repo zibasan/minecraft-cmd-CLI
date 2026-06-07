@@ -3,6 +3,7 @@ package cmd
 import (
 	"cmdforge/core"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -158,7 +159,14 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 	hasSlash := strings.HasPrefix(input, "/")
 
 	if currentNode.Children != nil {
-		for key, child := range currentNode.Children {
+		var keys []string
+		for k := range currentNode.Children {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			child := currentNode.Children[key]
 			if child.Type == "literal" {
 				if strings.HasPrefix(key, lastWord) {
 					suggestVal := key
@@ -170,7 +178,13 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 				syntaxParts = append(syntaxParts, key)
 			} else if child.Type == "argument" {
 				list := getDynamicSuggestions(child.Parser, child.GetRegistry())
-				for _, item := range list {
+				var sortedList []string
+				if list != nil {
+					sortedList = make([]string, len(list))
+					copy(sortedList, list)
+					sort.Strings(sortedList)
+				}
+				for _, item := range sortedList {
 					cleanItem := strings.TrimPrefix(item, "minecraft:")
 					if strings.HasPrefix(item, lastWord) || strings.HasPrefix(cleanItem, lastWord) {
 						suggestions = append(suggestions, item)

@@ -116,3 +116,20 @@ func TestPrefixlessCompletion(t *testing.T) {
 		t.Errorf("expected to find 'minecraft:diamond' or 'minecraft:diamond_sword' in suggestions for 'diam', got: %v", suggestions)
 	}
 }
+
+func TestSuggestionSorting(t *testing.T) {
+	_ = core.LoadData()
+
+	// "/g" に対するサジェストを抽出
+	_, suggestions, _ := getHighlightAndSuggestions("/g")
+	if len(suggestions) < 2 {
+		t.Skip("not enough suggestions to verify sort order")
+	}
+
+	// アルファベット順（a-z）にソートされていることを確認
+	for i := 0; i < len(suggestions)-1; i++ {
+		if suggestions[i] > suggestions[i+1] {
+			t.Errorf("suggestions are not sorted: %q is before %q", suggestions[i], suggestions[i+1])
+		}
+	}
+}
