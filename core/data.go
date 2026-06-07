@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -67,69 +68,73 @@ var (
 	CommandTree  BrigadierNode
 )
 
-// LoadData reads and decodes the embedded JSON files into memory.
+// loadJSONData checks if the JSON file exists locally in the current directory's data/ folder.
+// If it exists, it attempts to load and parse it to override embedded data.
+// If it fails or does not exist, it falls back to the embedded asset.
+func loadJSONData(fileName string, v interface{}, embedPath string) error {
+	filePath := "data/" + fileName
+
+	if _, err := os.Stat(filePath); err == nil {
+		fileBytes, err := os.ReadFile(filePath)
+		if err == nil {
+			// Strip UTF-8 BOM if present
+			fileBytes = bytes.TrimPrefix(fileBytes, []byte("\xef\xbb\xbf"))
+			if err := json.Unmarshal(fileBytes, v); err == nil {
+				return nil
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: failed to parse external file %s: %v. Falling back to embedded data.\n", filePath, err)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: failed to read external file %s: %v. Falling back to embedded data.\n", filePath, err)
+		}
+	}
+
+	embedBytes, err := dataFS.ReadFile(embedPath)
+	if err != nil {
+		return fmt.Errorf("failed to read embedded data %s: %w", embedPath, err)
+	}
+	if err := json.Unmarshal(embedBytes, v); err != nil {
+		return fmt.Errorf("failed to parse embedded data %s: %w", embedPath, err)
+	}
+
+	return nil
+}
+
+// LoadData reads and decodes the JSON files into memory, prioritizing local files.
 func LoadData() error {
 	// 1. Blocks
-	blockBytes, err := dataFS.ReadFile("data/blocks.json")
-	if err != nil {
-		return fmt.Errorf("failed to read blocks.json: %w", err)
-	}
-	if err := json.Unmarshal(blockBytes, &Blocks); err != nil {
-		return fmt.Errorf("failed to parse blocks.json: %w", err)
+	if err := loadJSONData("blocks.json", &Blocks, "data/blocks.json"); err != nil {
+		return err
 	}
 
 	// 2. Effects
-	effectBytes, err := dataFS.ReadFile("data/effects.json")
-	if err != nil {
-		return fmt.Errorf("failed to read effects.json: %w", err)
-	}
-	if err := json.Unmarshal(effectBytes, &Effects); err != nil {
-		return fmt.Errorf("failed to parse effects.json: %w", err)
+	if err := loadJSONData("effects.json", &Effects, "data/effects.json"); err != nil {
+		return err
 	}
 
 	// 3. Enchantments
-	enchantmentBytes, err := dataFS.ReadFile("data/enchantments.json")
-	if err != nil {
-		return fmt.Errorf("failed to read enchantments.json: %w", err)
-	}
-	if err := json.Unmarshal(enchantmentBytes, &Enchantments); err != nil {
-		return fmt.Errorf("failed to parse enchantments.json: %w", err)
+	if err := loadJSONData("enchantments.json", &Enchantments, "data/enchantments.json"); err != nil {
+		return err
 	}
 
 	// 4. Items
-	itemBytes, err := dataFS.ReadFile("data/items.json")
-	if err != nil {
-		return fmt.Errorf("failed to read items.json: %w", err)
-	}
-	if err := json.Unmarshal(itemBytes, &Items); err != nil {
-		return fmt.Errorf("failed to parse items.json: %w", err)
+	if err := loadJSONData("items.json", &Items, "data/items.json"); err != nil {
+		return err
 	}
 
 	// 5. Sounds
-	soundBytes, err := dataFS.ReadFile("data/sounds.json")
-	if err != nil {
-		return fmt.Errorf("failed to read sounds.json: %w", err)
-	}
-	if err := json.Unmarshal(soundBytes, &Sounds); err != nil {
-		return fmt.Errorf("failed to parse sounds.json: %w", err)
+	if err := loadJSONData("sounds.json", &Sounds, "data/sounds.json"); err != nil {
+		return err
 	}
 
 	// 6. Entities
-	entityBytes, err := dataFS.ReadFile("data/entities.json")
-	if err != nil {
-		return fmt.Errorf("failed to read entities.json: %w", err)
-	}
-	if err := json.Unmarshal(entityBytes, &Entities); err != nil {
-		return fmt.Errorf("failed to parse entities.json: %w", err)
+	if err := loadJSONData("entities.json", &Entities, "data/entities.json"); err != nil {
+		return err
 	}
 
 	// 7. Commands
-	commandBytes, err := dataFS.ReadFile("data/commands.json")
-	if err != nil {
-		return fmt.Errorf("failed to read commands.json: %w", err)
-	}
-	if err := json.Unmarshal(commandBytes, &CommandTree); err != nil {
-		return fmt.Errorf("failed to parse commands.json: %w", err)
+	if err := loadJSONData("commands.json", &CommandTree, "data/commands.json"); err != nil {
+		return err
 	}
 
 	return nil
