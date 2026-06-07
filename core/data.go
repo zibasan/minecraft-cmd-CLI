@@ -65,6 +65,7 @@ var (
 	Items        []string
 	Sounds       []string
 	Entities     []string
+	Components   []string
 	CommandTree  BrigadierNode
 )
 
@@ -132,7 +133,12 @@ func LoadData() error {
 		return err
 	}
 
-	// 7. Commands
+	// 7. Components
+	if err := loadJSONData("components.json", &Components, "data/components.json"); err != nil {
+		return err
+	}
+
+	// 8. Commands
 	if err := loadJSONData("commands.json", &CommandTree, "data/commands.json"); err != nil {
 		return err
 	}

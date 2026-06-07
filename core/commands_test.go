@@ -155,6 +155,25 @@ func TestParseCommandAndSyntaxGuides(t *testing.T) {
 	if !found {
 		t.Errorf("expected standard give guide in results: %v", guides)
 	}
+
+	// 4. Item component suggestions test
+	resComp := ParseCommand("/give @p diamond_sword[da")
+	if resComp.CurrentNodeName != "components" {
+		t.Errorf("expected active node name to be 'components', got %q", resComp.CurrentNodeName)
+	}
+	if resComp.CurrentParser != "minecraft:item_component" {
+		t.Errorf("expected parser to be 'minecraft:item_component', got %q", resComp.CurrentParser)
+	}
+	foundDamage := false
+	for _, s := range resComp.Suggestions {
+		if s == "diamond_sword[minecraft:damage" {
+			foundDamage = true
+			break
+		}
+	}
+	if !foundDamage {
+		t.Errorf("expected to find 'diamond_sword[minecraft:damage' in suggestions for 'diamond_sword[da', got: %v", resComp.Suggestions)
+	}
 }
 
 

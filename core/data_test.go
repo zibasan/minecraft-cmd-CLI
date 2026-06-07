@@ -31,7 +31,7 @@ func TestLoadDataExternalOverride(t *testing.T) {
 		t.Fatalf("failed to create test data dir: %v", err)
 	}
 
-	// Write custom blocks.json
+	// Write custom blocks.json and components.json
 	testBlocks := []string{"custom:block_a", "custom:block_b"}
 	blockFile := filepath.Join(testDataDir, "blocks.json")
 	fileBytes, err := json.Marshal(testBlocks)
@@ -41,6 +41,17 @@ func TestLoadDataExternalOverride(t *testing.T) {
 	err = os.WriteFile(blockFile, fileBytes, 0644)
 	if err != nil {
 		t.Fatalf("failed to write test blocks file: %v", err)
+	}
+
+	testComponents := []string{"custom:comp_a"}
+	compFile := filepath.Join(testDataDir, "components.json")
+	compBytes, err := json.Marshal(testComponents)
+	if err != nil {
+		t.Fatalf("failed to marshal test components: %v", err)
+	}
+	err = os.WriteFile(compFile, compBytes, 0644)
+	if err != nil {
+		t.Fatalf("failed to write test components file: %v", err)
 	}
 
 	// Switch working directory to sandbox
@@ -57,6 +68,10 @@ func TestLoadDataExternalOverride(t *testing.T) {
 
 	if len(Blocks) != 2 || Blocks[0] != "custom:block_a" || Blocks[1] != "custom:block_b" {
 		t.Errorf("expected Blocks to be overridden with %v, got %v", testBlocks, Blocks)
+	}
+
+	if len(Components) != 1 || Components[0] != "custom:comp_a" {
+		t.Errorf("expected Components to be overridden with %v, got %v", testComponents, Components)
 	}
 
 	// Corrupt blocks.json to test fallback

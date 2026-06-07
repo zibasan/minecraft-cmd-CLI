@@ -440,6 +440,7 @@ var ParserTypeNames = map[string]string{
 	"minecraft:item_stack":        "アイテムID (例: minecraft:diamond)",
 	"minecraft:item_parser":       "アイテム (例: minecraft:diamond)",
 	"minecraft:item_enchantment":  "エンチャントするアイテム",
+	"minecraft:item_component":    "アイテムコンポーネント（例: damage=10）",
 	"minecraft:item_slot":         "インベントリスロット (例: container.0)",
 	"minecraft:entity_summon":     "召喚するエンティティID (例: zombie)",
 	"minecraft:mob_effect":        "ステータス効果ID (例: speed)",
@@ -549,6 +550,7 @@ var ArgumentDescriptions = map[string]string{
 	"amount":           "数量",
 	"entity":           "召喚または指定するエンティティID",
 	"nbt":              "NBTデータ（JSON形式）",
+	"components":       "アイテムに付与するコンポーネント（属性、耐久度、カスタム名など）",
 	"slot":             "インベントリのスロット名（例: container.0）",
 	"modifier":         "属性のモディファイア（修飾子）ID",
 	"effect":           "ステータス効果ID",
@@ -816,6 +818,59 @@ func ParseCommand(input string) ParseResult {
 			ErrorIdx:      errorIdx,
 			CurrentParser: "",
 			CurrentNode:   currentNode,
+		}
+	}
+
+	// item component suggestion detection
+	if lastIdx := strings.LastIndex(lastWord, "["); lastIdx != -1 && !strings.Contains(lastWord[lastIdx:], "]") {
+		prefixPart := lastWord[:lastIdx+1]
+		componentPart := lastWord[lastIdx+1:]
+		segments := strings.Split(componentPart, ",")
+		lastSeg := segments[len(segments)-1]
+
+		if !strings.Contains(lastSeg, "=") {
+			argPrefix := ""
+			if len(segments) > 1 {
+				argPrefix = strings.Join(segments[:len(segments)-1], ",") + ","
+			}
+
+			for _, comp := range Components {
+				cleanComp := strings.TrimPrefix(comp, "minecraft:")
+				if strings.HasPrefix(comp, lastSeg) || strings.HasPrefix(cleanComp, lastSeg) {
+					suggestVal := prefixPart + argPrefix + comp
+					if isFirstWord && hasSlash {
+						suggestVal = "/" + suggestVal
+					}
+					suggestions = append(suggestions, suggestVal)
+				}
+			}
+
+			if len(suggestions) > 0 {
+				sort.Strings(suggestions)
+				
+				lastIsLiteral := false
+				dispText := lastWord
+				if len(rawWords) == 1 && hasSlash {
+					dispText = "/" + lastWord
+				}
+				words = append(words, ParsedWord{
+					Text:      dispText,
+					IsLiteral: lastIsLiteral,
+					ArgIndex:  argIdx,
+					IsError:   false,
+				})
+
+				return ParseResult{
+					Words:           words,
+					Suggestions:     suggestions,
+					SyntaxPreview:   "item_component",
+					ErrorIdx:        errorIdx,
+					CurrentParser:   "minecraft:item_component",
+					CurrentNode:     currentNode,
+					Registry:        registry,
+					CurrentNodeName: "components",
+				}
+			}
 		}
 	}
 
