@@ -3,7 +3,6 @@ package cmd
 import (
 	"cmdforge/core"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -26,480 +25,135 @@ type styledChar struct {
 	style lipgloss.Style
 }
 
-var parserTypeNames = map[string]string{
-	"minecraft:entity":            "対象（プレイヤー名や @p, @a など）",
-	"minecraft:game_profile":      "ゲームプロフィール（プレイヤー名）",
-	"minecraft:score_holder":      "スコアホルダー（プレイヤー名または対象エンティティ）",
-	"minecraft:item_stack":        "アイテムID (例: minecraft:diamond)",
-	"minecraft:item_parser":       "アイテム (例: minecraft:diamond)",
-	"minecraft:item_enchantment":  "エンチャントするアイテム",
-	"minecraft:item_slot":         "インベントリスロット (例: container.0)",
-	"minecraft:entity_summon":     "召喚するエンティティID (例: zombie)",
-	"minecraft:mob_effect":        "ステータス効果ID (例: speed)",
-	"minecraft:enchantment":       "エンチャント効果ID (例: sharpness)",
-	"minecraft:block_pos":         "ブロック座標 (X Y Z)",
-	"minecraft:vec3":              "3次元座標 (X Y Z)",
-	"minecraft:vec2":              "2次元座標 (X Z)",
-	"minecraft:column_pos":        "列座標 (X Z)",
-	"minecraft:block_state":       "ブロックIDと状態 (例: air, stone)",
-	"minecraft:block_input":       "ブロックIDと状態",
-	"minecraft:resource_key":      "リソースキー ID",
-	"minecraft:resource":          "リソース ID",
-	"minecraft:resource_location": "リソースの場所 / パス",
-	"minecraft:dimension":         "ディメンション名 (例: minecraft:overworld)",
-	"minecraft:nbt_compound_tag":  "NBTデータ (例: {CustomName:'\"Zombie\"'})",
-	"minecraft:message":           "メッセージテキスト",
-	"minecraft:component":         "JSON テキストコンポーネント",
-	"minecraft:item_predicate":    "アイテム判定条件",
-	"minecraft:block_predicate":   "ブロック判定条件",
-	"brigadier:string":            "文字列",
-	"brigadier:integer":           "整数値",
-	"brigadier:double":            "浮動小数点数値",
-	"brigadier:bool":              "真偽値 (true / false)",
-}
-
-var commandDescriptions = map[string]string{
-	"give":   "プレイヤーにアイテムを与えます。",
-	"summon": "エンティティ（Mobやアイテムなど）を指定位置に召喚します。",
-	"item":   "ブロックやエンティティのインベントリ内のアイテムを置換または変更します。",
-}
-
-// getDynamicSuggestions returns dynamic autocomplete list based on brigadier parser types.
-func getDynamicSuggestions(parser string, registry string) []string {
-	switch parser {
-	case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
-		return []string{"@p", "@a", "@r", "@s", "@e"}
-	case "minecraft:item_stack", "minecraft:item_parser", "minecraft:item_enchantment", "minecraft:item_slot":
-		return core.Items
-	case "minecraft:entity_summon":
-		return core.Entities
-	case "minecraft:mob_effect":
-		return core.Effects
-	case "minecraft:enchantment":
-		var enchNames []string
-		for _, e := range core.Enchantments {
-			enchNames = append(enchNames, e.Name)
-		}
-		return enchNames
-	case "minecraft:block_pos", "minecraft:vec3", "minecraft:vec2", "minecraft:column_pos":
-		return []string{"~ ~ ~"}
-	case "minecraft:block_state", "minecraft:block_input":
-		return core.Blocks
-	case "minecraft:resource_key", "minecraft:resource":
-		if registry == "minecraft:attribute" {
-			return []string{"generic.max_health", "generic.movement_speed", "generic.attack_damage"}
-		}
-		if registry == "minecraft:dimension" {
-			return []string{"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"}
-		}
-	}
-	return nil
-}
-
-// combineCoordinates joins consecutive coordinate tokens into a single word token.
-func combineCoordinates(rawWords []string) []string {
-	var result []string
-	n := len(rawWords)
-	for i := 0; i < n; {
-		w := rawWords[i]
-		if w == "" {
-			result = append(result, w)
-			i++
-			continue
-		}
-
-		if core.IsValidPositionToken(w) {
-			posParts := []string{w}
-			idx := i + 1
-			for idx < n && len(posParts) < 3 {
-				nextW := rawWords[idx]
-				if nextW != "" && core.IsValidPositionToken(nextW) {
-					posParts = append(posParts, nextW)
-					idx++
-				} else {
-					break
-				}
-			}
-			result = append(result, strings.Join(posParts, " "))
-			i = idx
-		} else {
-			result = append(result, w)
-			i++
-		}
-	}
-	return result
-}
-
-// isValidArgValue checks if a given word is valid for a brigadier parser.
-func isValidArgValue(w string, parser string, registry string, isLast bool) bool {
-	// 座標系のパース
-	if parser == "minecraft:block_pos" || parser == "minecraft:vec3" || parser == "minecraft:vec2" || parser == "minecraft:column_pos" {
-		parts := strings.Split(w, " ")
-		for _, part := range parts {
-			if part == "" {
-				continue
-			}
-			if !core.IsValidPositionToken(part) {
-				return false
-			}
-		}
-		return true
-	}
-
-	// 候補リストがある場合
-	suggestions := getDynamicSuggestions(parser, registry)
-	if suggestions != nil {
-		for _, s := range suggestions {
-			cleanS := strings.TrimPrefix(s, "minecraft:")
-			if isLast {
-				// 入力中の最後の単語の場合は前方一致でOK
-				if strings.HasPrefix(s, w) || strings.HasPrefix(cleanS, w) {
-					return true
-				}
-			} else {
-				// 確定した単語の場合は完全一致が必要
-				if s == w || cleanS == w {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	// 数値の簡易バリデーション
-	if parser == "brigadier:integer" || parser == "brigadier:double" {
-		if isLast {
-			return true
-		}
-		if parser == "brigadier:integer" {
-			var val int
-			_, err := fmt.Sscanf(w, "%d", &val)
-			return err == nil
-		} else {
-			var val float64
-			_, err := fmt.Sscanf(w, "%f", &val)
-			return err == nil
-		}
-	}
-	if parser == "brigadier:bool" {
-		if isLast {
-			return strings.HasPrefix("true", w) || strings.HasPrefix("false", w)
-		}
-		return w == "true" || w == "false"
-	}
-
-	return true
-}
-
-// getHighlightAndSuggestions parses input string against command tree to produce word styles, suggestions, and next syntax preview.
+// getHighlightAndSuggestions is a wrapper for backward compatibility with existing tests.
 func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string, int, string) {
-	// 先頭の "/" を除去してパース開始する
-	cleanInput := strings.TrimPrefix(input, "/")
-	rawWords := combineCoordinates(strings.Split(cleanInput, " "))
+	res := core.ParseCommand(input)
 	var styles []WordStyle
-	currentNode := &core.CommandTree
-	argIdx := 0
-	errorIdx := -1
-	var currentParser string
-
-	// 各確定単語に対してツリーをたどる
-	for i, w := range rawWords {
-		isLast := i == len(rawWords)-1
-		if isLast {
-			break
-		}
-		if w == "" {
-			continue
-		}
-
-		if errorIdx != -1 {
-			dispText := w
-			if i == 0 && strings.HasPrefix(input, "/") {
-				dispText = "/" + w
-			}
-			styles = append(styles, WordStyle{
-				Text:      dispText,
-				IsLiteral: false,
-				ArgIndex:  argIdx,
-				IsError:   true,
-			})
-			continue
-		}
-
-		var matched *core.BrigadierNode
-		if currentNode.Children != nil {
-			if child, exists := currentNode.Children[w]; exists && child.Type == "literal" {
-				matched = child
-			} else {
-				// リテラルとして完全一致しない場合は、引数 (type == "argument") のノードを探す
-				for _, child := range currentNode.Children {
-					if child.Type == "argument" {
-						if isValidArgValue(w, child.Parser, child.GetRegistry(), false) {
-							matched = child
-							break
-						}
-					}
-				}
-			}
-		}
-
-		dispText := w
-		if i == 0 && strings.HasPrefix(input, "/") {
-			dispText = "/" + w
-		}
-
-		if matched != nil {
-			isLiteral := matched.Type == "literal"
-			styles = append(styles, WordStyle{
-				Text:      dispText,
-				IsLiteral: isLiteral,
-				ArgIndex:  argIdx,
-				IsError:   false,
-			})
-			if !isLiteral {
-				argIdx++
-			}
-			currentNode = matched
-		} else {
-			errorIdx = i
-			styles = append(styles, WordStyle{
-				Text:      dispText,
-				IsLiteral: false,
-				ArgIndex:  argIdx,
-				IsError:   true,
-			})
-		}
-	}
-
-	lastWord := rawWords[len(rawWords)-1]
-	var suggestions []string
-	var syntaxParts []string
-
-	isFirstWord := len(rawWords) == 1
-	hasSlash := strings.HasPrefix(input, "/")
-
-	if errorIdx != -1 {
-		dispText := lastWord
-		if len(rawWords) == 1 && hasSlash {
-			dispText = "/" + lastWord
-		}
+	for _, w := range res.Words {
 		styles = append(styles, WordStyle{
-			Text:      dispText,
-			IsLiteral: false,
-			ArgIndex:  argIdx,
-			IsError:   true,
-		})
-		return styles, nil, "", errorIdx, ""
-	}
-
-	var matchedLast *core.BrigadierNode
-	if currentNode.Children != nil {
-		if child, exists := currentNode.Children[lastWord]; exists && child.Type == "literal" {
-			matchedLast = child
-		} else {
-			for _, child := range currentNode.Children {
-				if child.Type == "argument" {
-					if isValidArgValue(lastWord, child.Parser, child.GetRegistry(), true) {
-						matchedLast = child
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if currentNode.Children != nil {
-		var keys []string
-		for k := range currentNode.Children {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		for _, key := range keys {
-			child := currentNode.Children[key]
-			if child.Type == "literal" {
-				if strings.HasPrefix(key, lastWord) {
-					suggestVal := key
-					if isFirstWord && hasSlash {
-						suggestVal = "/" + key
-					}
-					suggestions = append(suggestions, suggestVal)
-				}
-				syntaxParts = append(syntaxParts, key)
-			} else if child.Type == "argument" {
-				list := getDynamicSuggestions(child.Parser, child.GetRegistry())
-				var sortedList []string
-				if list != nil {
-					sortedList = make([]string, len(list))
-					copy(sortedList, list)
-					sort.Strings(sortedList)
-				}
-				for _, item := range sortedList {
-					cleanItem := strings.TrimPrefix(item, "minecraft:")
-					if strings.HasPrefix(item, lastWord) || strings.HasPrefix(cleanItem, lastWord) {
-						suggestions = append(suggestions, item)
-					}
-				}
-				syntaxParts = append(syntaxParts, "<"+key+">")
-			}
-		}
-	}
-
-	if matchedLast != nil && matchedLast.Type == "argument" {
-		currentParser = matchedLast.Parser
-	}
-
-	lastIsError := false
-	if lastWord != "" {
-		hasValidMatch := false
-		if matchedLast != nil {
-			hasValidMatch = true
-		} else if currentNode.Children != nil {
-			for key, child := range currentNode.Children {
-				if child.Type == "literal" && strings.HasPrefix(key, lastWord) {
-					hasValidMatch = true
-					break
-				}
-			}
-		}
-		if !hasValidMatch {
-			lastIsError = true
-			errorIdx = len(rawWords) - 1
-		}
-	}
-
-	lastIsLiteral := false
-	if matchedLast != nil && matchedLast.Type == "literal" {
-		lastIsLiteral = true
-	}
-
-	if lastWord != "" {
-		dispText := lastWord
-		if len(rawWords) == 1 && hasSlash {
-			dispText = "/" + lastWord
-		}
-		styles = append(styles, WordStyle{
-			Text:      dispText,
-			IsLiteral: lastIsLiteral,
-			ArgIndex:  argIdx,
-			IsError:   lastIsError,
+			Text:      w.Text,
+			IsLiteral: w.IsLiteral,
+			ArgIndex:  w.ArgIndex,
+			IsError:   w.IsError,
 		})
 	}
-
-	var nextSyntaxPreview string
-	if len(syntaxParts) > 0 {
-		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
-	}
-
-	return styles, suggestions, nextSyntaxPreview, errorIdx, currentParser
+	return styles, res.Suggestions, res.SyntaxPreview, res.ErrorIdx, res.CurrentParser
 }
 
-// getStyledRunes parses runes input and maps each char to styledChar.
+// getStyledRunes parses runes input and maps each char to styledChar using dynamic parsed words.
 func getStyledRunes(input []rune) []styledChar {
 	str := string(input)
-	rawWords := combineCoordinates(strings.Split(str, " "))
-	wordStyles, _, _, errorIdx, _ := getHighlightAndSuggestions(str)
+	res := core.ParseCommand(str)
 
-	whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
-	cyanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FFFF"))
 	yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55"))
+	cyanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FFFF"))
 	limeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55"))
 	pinkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF55FF"))
 	orangeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAA00"))
 	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Underline(true)
-
-	getArgStyle := func(argIdx int) lipgloss.Style {
-		switch argIdx % 5 {
-		case 0:
-			return cyanStyle
-		case 1:
-			return yellowStyle
-		case 2:
-			return limeStyle
-		case 3:
-			return pinkStyle
-		case 4:
-			return orangeStyle
-		default:
-			return whiteStyle
-		}
-	}
+	whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
 
 	var styledChars []styledChar
-	wordIdx := 0
 	runeIdx := 0
 
-	for _, word := range rawWords {
+	for wIdx, w := range res.Words {
+		isErrorWord := res.ErrorIdx != -1 && wIdx >= res.ErrorIdx
 		var currentStyle lipgloss.Style
-		isErrorWord := errorIdx != -1 && wordIdx >= errorIdx
 
 		if isErrorWord {
 			currentStyle = errorStyle
-		} else if wordIdx < len(wordStyles) {
-			ws := wordStyles[wordIdx]
-			if ws.IsError {
-				currentStyle = errorStyle
-			} else if ws.IsLiteral {
-				currentStyle = whiteStyle
-			} else {
-				currentStyle = getArgStyle(ws.ArgIndex)
-			}
-		} else {
+		} else if w.IsLiteral {
 			currentStyle = whiteStyle
+		} else {
+			switch w.ArgIndex % 5 {
+			case 0:
+				currentStyle = cyanStyle
+			case 1:
+				currentStyle = yellowStyle
+			case 2:
+				currentStyle = limeStyle
+			case 3:
+				currentStyle = pinkStyle
+			case 4:
+				currentStyle = orangeStyle
+			default:
+				currentStyle = whiteStyle
+			}
 		}
 
-		for _, r := range word {
-			styledChars = append(styledChars, styledChar{char: r, style: currentStyle})
+		wRunes := []rune(w.Text)
+		for range wRunes {
+			if runeIdx >= len(input) {
+				break
+			}
+			styledChars = append(styledChars, styledChar{char: input[runeIdx], style: currentStyle})
 			runeIdx++
 		}
 
-		// Keep spacing exactly matching input runes
 		for runeIdx < len(input) && input[runeIdx] == ' ' {
 			spaceStyle := whiteStyle
-			if errorIdx != -1 && wordIdx >= errorIdx {
+			if res.ErrorIdx != -1 && wIdx >= res.ErrorIdx {
 				spaceStyle = errorStyle
 			}
 			styledChars = append(styledChars, styledChar{char: ' ', style: spaceStyle})
 			runeIdx++
 		}
-		wordIdx++
+	}
+
+	for runeIdx < len(input) {
+		styledChars = append(styledChars, styledChar{char: input[runeIdx], style: whiteStyle})
+		runeIdx++
 	}
 
 	return styledChars
 }
 
-// getSyntaxGuide returns command tree syntax string based on input.
+// highlightCommand turns an input string into a LipGloss-styled formatted string.
+func highlightCommand(input string) string {
+	styled := getStyledRunes([]rune(input))
+	var sb strings.Builder
+	for _, sc := range styled {
+		sb.WriteString(sc.style.Render(string(sc.char)))
+	}
+	return sb.String()
+}
+
+// getSyntaxGuide returns dynamic syntax guides based on the commands tree.
 func getSyntaxGuide(input string) string {
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return "コマンドを入力してください (例: /give, /summon, /item):\n" +
-			"  /give <targets> <item> [<count>]\n" +
-			"  /summon <entity> [<pos>] [<nbt>]\n" +
-			"  /item replace block <pos> <slot> with <item> [<count>]\n" +
-			"  /item replace entity <targets> <slot> with <item> [<count>]\n" +
-			"  /item modify block <pos> <slot> <modifier>\n" +
-			"  /item modify entity <targets> <slot> <modifier>"
+	inputTrim := strings.TrimSpace(input)
+	if inputTrim == "" {
+		return "コマンドを入力してください (例: /give, /summon, /item, /gamemode, /tp, /effect):"
 	}
 
-	parts := strings.Split(input, " ")
-	cmd := parts[0]
+	res := core.ParseCommand(input)
 
-	if strings.HasPrefix("/give", cmd) {
-		return "構文ガイド:\n  /give <targets> <item> [<count>]"
+	var prefixParts []string
+	for _, w := range res.Words {
+		prefixParts = append(prefixParts, w.Text)
 	}
-	if strings.HasPrefix("/summon", cmd) {
-		return "構文ガイド:\n  /summon <entity> [<pos>] [<nbt>]"
-	}
-	if strings.HasPrefix("/item", cmd) {
-		return "構文ガイド:\n" +
-			"  /item replace block <pos> <slot> with <item> [<count>]\n" +
-			"  /item replace entity <targets> <slot> with <item> [<count>]\n" +
-			"  /item modify block <pos> <slot> <modifier>\n" +
-			"  /item modify entity <targets> <slot> <modifier>"
+	prefix := strings.Join(prefixParts, " ")
+	if strings.HasPrefix(input, "/") && !strings.HasPrefix(prefix, "/") {
+		prefix = "/" + prefix
 	}
 
-	return "不明なコマンドです。以下のいずれかを入力してください:\n" +
-		"  /give | /summon | /item"
+	guides := core.GetSyntaxGuides(res.CurrentNode, prefix)
+
+	var sb strings.Builder
+	if len(guides) > 0 {
+		sb.WriteString("構文ガイド:\n")
+		maxGuides := 5
+		for i, g := range guides {
+			if i >= maxGuides {
+				sb.WriteString(fmt.Sprintf("  ... 他 %d 件の構文パターンがあります\n", len(guides)-maxGuides))
+				break
+			}
+			sb.WriteString("  " + g + "\n")
+		}
+	} else {
+		sb.WriteString("構文ガイド: なし\n")
+	}
+
+	return strings.TrimSuffix(sb.String(), "\n")
 }
 
 // bubbletea model
@@ -626,22 +280,26 @@ func (m freeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m freeModel) renderInputLine() string {
-	styled := getStyledRunes(m.input)
-	cursorStyle := lipgloss.NewStyle().Background(lipgloss.Color("#FFFFFF")).Foreground(lipgloss.Color("#000000"))
+	highlighted := highlightCommand(string(m.input))
+	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
 
 	var sb strings.Builder
 	sb.WriteString(" > ")
 
-	for i := 0; i < len(m.input); i++ {
-		if i == m.cursorIdx {
-			sb.WriteString(cursorStyle.Render(string(m.input[i])))
-		} else {
-			sb.WriteString(styled[i].style.Render(string(styled[i].char)))
-		}
-	}
-
 	if m.cursorIdx == len(m.input) {
-		sb.WriteString(cursorStyle.Render(" "))
+		sb.WriteString(highlighted)
+		sb.WriteString(cursorStyle.Render("█"))
+	} else {
+		styled := getStyledRunes(m.input)
+		for i := 0; i < len(m.input); i++ {
+			if i == m.cursorIdx {
+				invertStyle := styled[i].style.Copy().Reverse(true)
+				sb.WriteString(invertStyle.Render(string(m.input[i])))
+			} else {
+				sb.WriteString(styled[i].style.Render(string(styled[i].char)))
+			}
+		}
+		sb.WriteString(cursorStyle.Render("█"))
 	}
 
 	return sb.String()
@@ -687,36 +345,47 @@ func (m freeModel) renderTopArea(height int) string {
 		return ""
 	}
 
-	helpText := "操作ヘルプ:\n" +
+	helpTitle := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("操作ヘルプ:")
+	helpText := helpTitle + "\n" +
 		"  [Tab]   : 選択中の候補を補完\n" +
 		"  [Esc]   : 終了\n" +
 		"  [Up/Down/Ctrl+N/Ctrl+P] : 候補の選択切り替え\n" +
 		"  [Enter] : コマンド生成を実行"
 
+	res := core.ParseCommand(string(m.input))
 	guide := getSyntaxGuide(string(m.input))
 
 	var cmdDesc string
-	cleanInput := strings.TrimSpace(strings.TrimPrefix(string(m.input), "/"))
-	if cleanInput != "" {
-		parts := strings.Split(cleanInput, " ")
-		cmdName := parts[0]
-		if desc, exists := commandDescriptions[cmdName]; exists {
-			grayStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA"))
-			cmdDesc = "\n" + grayStyle.Render("説明: "+desc)
+	if len(res.Words) > 0 {
+		cmdName := strings.TrimPrefix(res.Words[0].Text, "/")
+		if desc, exists := core.CommandDescriptions[cmdName]; exists {
+			title := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55")).Render("コマンド説明:")
+			descText := lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(desc)
+			cmdDesc = "\n" + title + "\n  " + descText
 		}
 	}
 
-	var typeGuidance string
-	if m.currentParser != "" {
-		displayName := m.currentParser
-		if jpName, exists := parserTypeNames[m.currentParser]; exists {
-			displayName = jpName
+	var argGuidance string
+	if res.CurrentNode != nil && res.CurrentNode.Type == "argument" {
+		title := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55")).Render("引数情報:")
+		
+		parserDisp := res.CurrentParser
+		if jp, exists := core.ParserTypeNames[res.CurrentParser]; exists {
+			parserDisp = jp
 		}
-		yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55"))
-		typeGuidance = "\n" + yellowStyle.Render("型: "+displayName)
+		
+		propDesc := res.CurrentNode.GetPropertiesDescription()
+		typeLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FFFF")).Render("  データ型: ") + parserDisp + propDesc
+		
+		var descLine string
+		if desc, exists := core.ArgumentDescriptions[res.CurrentNodeName]; exists {
+			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(desc)
+		}
+		
+		argGuidance = "\n" + title + "\n" + typeLine + descLine
 	}
 
-	content := guide + cmdDesc + typeGuidance + "\n\n" + helpText
+	content := guide + cmdDesc + argGuidance + "\n\n" + helpText
 
 	return lipgloss.NewStyle().
 		Height(height).
@@ -752,7 +421,14 @@ func (m freeModel) View() string {
 	}
 	elements = append(elements, inputStr)
 
-	return lipgloss.JoinVertical(lipgloss.Left, elements...)
+	container := lipgloss.JoinVertical(lipgloss.Left, elements...)
+
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Height(m.height).
+		MaxHeight(m.height).
+		MaxWidth(m.width).
+		Render(container)
 }
 
 // freeCmd represents the free command.

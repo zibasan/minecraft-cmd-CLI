@@ -108,4 +108,53 @@ func TestAssembleNbtString(t *testing.T) {
 	}
 }
 
+func TestParseCommandAndSyntaxGuides(t *testing.T) {
+	if err := LoadData(); err != nil {
+		t.Fatalf("failed to load data: %v", err)
+	}
+
+	// 1. ParseCommand "/give @p"
+	res := ParseCommand("/give @p")
+	if len(res.Words) != 2 {
+		t.Fatalf("expected 2 words, got %d", len(res.Words))
+	}
+	if res.Words[0].Text != "/give" || !res.Words[0].IsLiteral {
+		t.Errorf("expected '/give' to be literal, got: %+v", res.Words[0])
+	}
+	if res.Words[1].Text != "@p" || res.Words[1].IsLiteral {
+		t.Errorf("expected '@p' to be dynamic argument, got: %+v", res.Words[1])
+	}
+	if res.CurrentNodeName != "targets" {
+		t.Errorf("expected active node name to be 'targets', got %q", res.CurrentNodeName)
+	}
+
+	// 2. ParseCommand "/summon zombie ~ ~5 ~" (coordinate combination test)
+	res2 := ParseCommand("/summon zombie ~ ~5 ~")
+	if len(res2.Words) != 3 {
+		t.Fatalf("expected 3 words (summon, zombie, coordinates), got %d: %+v", len(res2.Words), res2.Words)
+	}
+	if res2.Words[2].Text != "~ ~5 ~" {
+		t.Errorf("expected '~ ~5 ~' to be combined coordinate word, got %q", res2.Words[2].Text)
+	}
+
+	// 3. GetSyntaxGuides for /give
+	resGive := ParseCommand("/give")
+	guides := GetSyntaxGuides(resGive.CurrentNode, "/give")
+	if len(guides) == 0 {
+		t.Error("expected syntax guides for /give, got 0")
+	}
+
+	// Verify one of the guides matches the minecraft give command pattern
+	found := false
+	for _, g := range guides {
+		if g == "/give <targets> <item>" || g == "/give <targets> <item> <count>" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected standard give guide in results: %v", guides)
+	}
+}
+
 

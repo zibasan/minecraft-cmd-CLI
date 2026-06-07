@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -405,4 +406,598 @@ func FilterBlocksByCategory(allBlocks []string, categoryKeywords []string) []str
 		}
 	}
 	return filtered
+}
+
+// -----------------------------------------------------------------------------
+// Command Parser and TUI Guide Logic for Free Mode
+// -----------------------------------------------------------------------------
+
+// ParsedWord represents a single parsed word with its metadata.
+type ParsedWord struct {
+	Text      string
+	IsLiteral bool
+	ArgIndex  int
+	IsError   bool
+}
+
+// ParseResult holds the result of parsing a command line.
+type ParseResult struct {
+	Words           []ParsedWord
+	Suggestions     []string
+	SyntaxPreview   string
+	ErrorIdx        int
+	CurrentParser   string
+	CurrentNode     *BrigadierNode
+	Registry        string
+	CurrentNodeName string
+}
+
+// ParserTypeNames maps Brigadier parser types to user-friendly Japanese explanations.
+var ParserTypeNames = map[string]string{
+	"minecraft:entity":            "対象（プレイヤー名や @p, @a など）",
+	"minecraft:game_profile":      "ゲームプロフィール（プレイヤー名）",
+	"minecraft:score_holder":      "スコアホルダー（プレイヤー名または対象エンティティ）",
+	"minecraft:item_stack":        "アイテムID (例: minecraft:diamond)",
+	"minecraft:item_parser":       "アイテム (例: minecraft:diamond)",
+	"minecraft:item_enchantment":  "エンチャントするアイテム",
+	"minecraft:item_slot":         "インベントリスロット (例: container.0)",
+	"minecraft:entity_summon":     "召喚するエンティティID (例: zombie)",
+	"minecraft:mob_effect":        "ステータス効果ID (例: speed)",
+	"minecraft:enchantment":       "エンチャント効果ID (例: sharpness)",
+	"minecraft:block_pos":         "ブロック座標 (X Y Z)",
+	"minecraft:vec3":              "3次元座標 (X Y Z)",
+	"minecraft:vec2":              "2次元座標 (X Z)",
+	"minecraft:column_pos":        "列座標 (X Z)",
+	"minecraft:block_state":       "ブロックIDと状態 (例: air, stone)",
+	"minecraft:block_input":       "ブロックIDと状態",
+	"minecraft:resource_key":      "リソースキー ID",
+	"minecraft:resource":          "リソース ID",
+	"minecraft:resource_location": "リソースの場所 / パス",
+	"minecraft:dimension":         "ディメンション名 (例: minecraft:overworld)",
+	"minecraft:nbt_compound_tag":  "NBTデータ (例: {CustomName:'\"Zombie\"'})",
+	"minecraft:message":           "メッセージテキスト",
+	"minecraft:component":         "JSON テキストコンポーネント",
+	"minecraft:item_predicate":    "アイテム判定条件",
+	"minecraft:block_predicate":   "ブロック判定条件",
+	"brigadier:string":            "文字列",
+	"brigadier:integer":           "整数値",
+	"brigadier:double":            "浮動小数点数値",
+	"brigadier:bool":              "真偽値 (true / false)",
+}
+
+// CommandDescriptions maps Minecraft commands to their Japanese descriptions.
+var CommandDescriptions = map[string]string{
+	"ability":         "プレイヤーのアビリティを設定または確認します。",
+	"advancement":     "プレイヤーの進捗を進めたり戻したりします。",
+	"attribute":       "エンティティの属性（最大体力や移動速度など）を操作します。",
+	"ban":             "プレイヤーをサーバーからBAN（アクセス禁止）にします。",
+	"ban-ip":          "IPアドレスをサーバーからBANします。",
+	"banlist":         "BANされたプレイヤーまたはIPの一覧を表示します。",
+	"bossbar":         "ボスバーを作成、削除、または設定します。",
+	"clear":           "プレイヤーのインベントリからアイテムを消去します。",
+	"clone":           "指定した範囲のブロックを別の場所に複製します。",
+	"damage":          "エンティティにダメージを与えます。",
+	"data":            "ブロックやエンティティのNBTデータを取得、結合、変更、消去します。",
+	"datapack":        "データパックを有効化、無効化、または一覧表示します。",
+	"debug":           "デバッグセッションを開始または停止します。",
+	"defaultgamemode": "ワールドのデフォルトのゲームモードを設定します。",
+	"difficulty":      "ゲームの難易度を設定します。",
+	"effect":          "エンティティにステータス効果（ポーション効果）を付与または消去します。",
+	"enchant":         "プレイヤーの持っているアイテムにエンチャントを付与します。",
+	"execute":         "他のコマンドを指定した条件や実行者、位置で実行します。",
+	"experience":      "プレイヤーに経験値またはレベルを与えたり奪ったりします。",
+	"fill":            "指定した範囲を特定のブロックで満たします。",
+	"fillbiome":       "指定した範囲のバイオームを変更します。",
+	"forceload":       "チャンクを常時ロードするように設定または解除します。",
+	"gamemode":        "プレイヤーのゲームモード（サバイバル、クリエイティブなど）を変更します。",
+	"gamerule":        "ゲームルールの値を設定または取得します。",
+	"give":            "プレイヤーにアイテムを与えます。",
+	"help":            "コマンドのヘルプを表示します。",
+	"item":            "ブロックやエンティティのインベントリ内のアイテムを変更・置換します。",
+	"kick":            "プレイヤーをサーバーからキック（強制退出）します。",
+	"kill":            "エンティティをキル（消去）します。",
+	"list":            "サーバーに接続しているプレイヤーの一覧を表示します。",
+	"locate":          "最も近い構造物、バイオーム、または関心のある場所(POI)の座標を表示します。",
+	"loot":            "指定したソース（チェストやエンティティなど）からドロップアイテムをインベントリやワールドに排出します。",
+	"me":              "プレイヤーのアクションメッセージを表示します。",
+	"msg":             "他のプレイヤーにプライベートメッセージを送信します。",
+	"op":              "プレイヤーにオペレーター権限（管理者権限）を付与します。",
+	"pardon":          "プレイヤーのBANを解除します。",
+	"pardon-ip":       "IPアドレスのBANを解除します。",
+	"particle":        "パーティクル（粒子エフェクト）を表示します。",
+	"playground":      "プレイグラウンドモードを開始します。",
+	"playsound":       "指定したサウンドを再生します。",
+	"recipe":          "プレイヤーにレシピを与えたり剥奪したりします。",
+	"reload":          "データパック、レシピ、戦利品テーブルなどを再読み込みします。",
+	"ride":            "エンティティを他のエンティティに乗せたり降ろしたりします。",
+	"say":             "チャット欄にメッセージを送信します。",
+	"schedule":        "指定時間後にアクション（関数）を実行するようにスケジュールします。",
+	"scoreboard":      "スコアボードのオブジェクトやプレイヤーのスコアを管理します。",
+	"seed":            "ワールドのシード値を表示します。",
+	"setblock":        "指定した座標のブロックを別のブロックに変更します。",
+	"setworldspawn":   "ワールドのスポーン地点を設定します。",
+	"spawnpoint":      "プレイヤーの個別スポーン地点を設定します。",
+	"spectate":        "プレイヤーに他のエンティティを観戦させます。",
+	"spreadplayers":   "エンティティをランダムな位置に分散させます。",
+	"stopsound":       "再生中のサウンドを停止します。",
+	"summon":          "エンティティ（Mobやアイテムなど）を召喚します。",
+	"tag":             "エンティティのカスタムタグを管理します。",
+	"team":            "チームの作成、削除、設定、およびメンバーの管理を行います。",
+	"teammsg":         "所属しているチームのメンバーのみにメッセージを送信します。",
+	"teleport":        "エンティティを指定した位置または他のエンティティの位置へテレポートします。",
+	"tell":            "他のプレイヤーにプライベートメッセージを送信します。",
+	"tellraw":         "プレイヤーにJSONフォーマットのテキストメッセージを表示します。",
+	"time":            "ワールドの時間を変更または照会します。",
+	"title":           "プレイヤーの画面にタイトルテキストを表示します。",
+	"tp":              "エンティティをテレポートします（teleportの短縮形）。",
+	"trigger":         "トリガー型のスコアボード目的を有効化します。",
+	"weather":         "天候（晴れ、雨、雷雨）を設定します。",
+	"worldborder":     "ワールド境界線を管理します。",
+	"xp":              "経験値を操作します（experienceの短縮形）。",
+}
+
+// ArgumentDescriptions maps common argument names to descriptive Japanese summaries.
+var ArgumentDescriptions = map[string]string{
+	"targets":          "効果やアクションの対象となるプレイヤーまたはエンティティ",
+	"target":           "効果やアクションの対象となるプレイヤーまたはエンティティ（単一）",
+	"destination":      "テレポート先となる座標またはエンティティ",
+	"location":         "座標位置 (X Y Z)",
+	"pos":              "ブロック座標 (X Y Z)",
+	"block":            "配置または指定するブロックID",
+	"item":             "アイテムID",
+	"count":            "アイテムの個数",
+	"amount":           "数量",
+	"entity":           "召喚または指定するエンティティID",
+	"nbt":              "NBTデータ（JSON形式）",
+	"slot":             "インベントリのスロット名（例: container.0）",
+	"modifier":         "属性のモディファイア（修飾子）ID",
+	"effect":           "ステータス効果ID",
+	"enchantment":      "エンチャント効果ID",
+	"level":            "エンチャントレベルや経験値レベルなどの数値",
+	"duration":         "効果の持続時間（秒数または ticks）",
+	"amplifier":        "効果の強さ（レベル、0がレベル1に相当）",
+	"hideParticles":    "パーティクル（泡のエフェクト）を非表示にするかどうか (true/false)",
+	"scale":            "倍率（数値）",
+	"reason":           "BANやキックの理由メッセージ",
+	"message":          "送信するメッセージテキスト",
+	"command":          "実行するコマンド文字列",
+	"visible":          "表示するかどうか (true/false)",
+	"value":            "設定する値",
+	"id":               "IDまたはリソースの場所",
+	"name":             "名前（JSON形式のコンポーネントなど）",
+	"speed":            "速度（数値）",
+}
+
+// GetPropertiesDescription formats limits (min/max) defined in properties.
+func (n *BrigadierNode) GetPropertiesDescription() string {
+	if n.Properties == nil {
+		return ""
+	}
+	var parts []string
+	if min, exists := n.Properties["min"]; exists {
+		parts = append(parts, fmt.Sprintf("最小値: %v", min))
+	}
+	if max, exists := n.Properties["max"]; exists {
+		parts = append(parts, fmt.Sprintf("最大値: %v", max))
+	}
+	if len(parts) > 0 {
+		return " (" + strings.Join(parts, ", ") + ")"
+	}
+	return ""
+}
+
+// GetDynamicSuggestions returns list of values for Minecraft argument types.
+func GetDynamicSuggestions(parser string, registry string) []string {
+	switch parser {
+	case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
+		return []string{"@p", "@a", "@r", "@s", "@e"}
+	case "minecraft:item_stack", "minecraft:item_parser", "minecraft:item_enchantment", "minecraft:item_slot":
+		return Items
+	case "minecraft:entity_summon":
+		return Entities
+	case "minecraft:mob_effect":
+		return Effects
+	case "minecraft:enchantment":
+		var enchNames []string
+		for _, e := range Enchantments {
+			enchNames = append(enchNames, e.Name)
+		}
+		return enchNames
+	case "minecraft:block_pos", "minecraft:vec3", "minecraft:vec2", "minecraft:column_pos":
+		return []string{"~ ~ ~"}
+	case "minecraft:block_state", "minecraft:block_input":
+		return Blocks
+	case "minecraft:resource_key", "minecraft:resource":
+		if registry == "minecraft:attribute" {
+			return []string{"generic.max_health", "generic.movement_speed", "generic.attack_damage"}
+		}
+		if registry == "minecraft:dimension" {
+			return []string{"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"}
+		}
+	}
+	return nil
+}
+
+// combineCoordinates joins consecutive coordinate tokens into a single word token.
+func combineCoordinates(rawWords []string) []string {
+	var result []string
+	n := len(rawWords)
+	for i := 0; i < n; {
+		w := rawWords[i]
+		if w == "" {
+			result = append(result, w)
+			i++
+			continue
+		}
+
+		if IsValidPositionToken(w) {
+			posParts := []string{w}
+			idx := i + 1
+			for idx < n && len(posParts) < 3 {
+				nextW := rawWords[idx]
+				if nextW != "" && IsValidPositionToken(nextW) {
+					posParts = append(posParts, nextW)
+					idx++
+				} else {
+					break
+				}
+			}
+			result = append(result, strings.Join(posParts, " "))
+			i = idx
+		} else {
+			result = append(result, w)
+			i++
+		}
+	}
+	return result
+}
+
+// isValidArgValue checks if a given word is valid for a brigadier parser.
+func isValidArgValue(w string, parser string, registry string, isLast bool) bool {
+	if parser == "minecraft:block_pos" || parser == "minecraft:vec3" || parser == "minecraft:vec2" || parser == "minecraft:column_pos" {
+		parts := strings.Split(w, " ")
+		for _, part := range parts {
+			if part == "" {
+				continue
+			}
+			if !IsValidPositionToken(part) {
+				return false
+			}
+		}
+		return true
+	}
+
+	suggestions := GetDynamicSuggestions(parser, registry)
+	if suggestions != nil {
+		for _, s := range suggestions {
+			cleanS := strings.TrimPrefix(s, "minecraft:")
+			if isLast {
+				if strings.HasPrefix(s, w) || strings.HasPrefix(cleanS, w) {
+					return true
+				}
+			} else {
+				if s == w || cleanS == w {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	if parser == "brigadier:integer" || parser == "brigadier:double" {
+		if isLast {
+			return true
+		}
+		if parser == "brigadier:integer" {
+			var val int
+			_, err := fmt.Sscanf(w, "%d", &val)
+			return err == nil
+		} else {
+			var val float64
+			_, err := fmt.Sscanf(w, "%f", &val)
+			return err == nil
+		}
+	}
+	if parser == "brigadier:bool" {
+		if isLast {
+			return strings.HasPrefix("true", w) || strings.HasPrefix("false", w)
+		}
+		return w == "true" || w == "false"
+	}
+
+	return true
+}
+
+// ParseCommand parses a raw input command line dynamically against the commands tree.
+func ParseCommand(input string) ParseResult {
+	cleanInput := strings.TrimPrefix(input, "/")
+	rawWords := combineCoordinates(strings.Split(cleanInput, " "))
+	var words []ParsedWord
+	currentNode := &CommandTree
+	argIdx := 0
+	errorIdx := -1
+	var currentParser string
+	var registry string
+	var lastNodeName string
+
+	for i, w := range rawWords {
+		isLast := i == len(rawWords)-1
+		if isLast {
+			break
+		}
+		if w == "" {
+			continue
+		}
+
+		if errorIdx != -1 {
+			dispText := w
+			if i == 0 && strings.HasPrefix(input, "/") {
+				dispText = "/" + w
+			}
+			words = append(words, ParsedWord{
+				Text:      dispText,
+				IsLiteral: false,
+				ArgIndex:  argIdx,
+				IsError:   true,
+			})
+			continue
+		}
+
+		var matched *BrigadierNode
+		var matchedName string
+		if currentNode.Children != nil {
+			if child, exists := currentNode.Children[w]; exists && child.Type == "literal" {
+				matched = child
+				matchedName = w
+			} else {
+				for name, child := range currentNode.Children {
+					if child.Type == "argument" {
+						if isValidArgValue(w, child.Parser, child.GetRegistry(), false) {
+							matched = child
+							matchedName = name
+							break
+						}
+					}
+				}
+			}
+		}
+
+		dispText := w
+		if i == 0 && strings.HasPrefix(input, "/") {
+			dispText = "/" + w
+		}
+
+		if matched != nil {
+			isLiteral := matched.Type == "literal"
+			words = append(words, ParsedWord{
+				Text:      dispText,
+				IsLiteral: isLiteral,
+				ArgIndex:  argIdx,
+				IsError:   false,
+			})
+			if !isLiteral {
+				argIdx++
+			}
+			currentNode = matched
+			lastNodeName = matchedName
+		} else {
+			errorIdx = i
+			words = append(words, ParsedWord{
+				Text:      dispText,
+				IsLiteral: false,
+				ArgIndex:  argIdx,
+				IsError:   true,
+			})
+		}
+	}
+
+	lastWord := rawWords[len(rawWords)-1]
+	var suggestions []string
+	var syntaxParts []string
+
+	isFirstWord := len(rawWords) == 1
+	hasSlash := strings.HasPrefix(input, "/")
+
+	if errorIdx != -1 {
+		dispText := lastWord
+		if len(rawWords) == 1 && hasSlash {
+			dispText = "/" + lastWord
+		}
+		words = append(words, ParsedWord{
+			Text:      dispText,
+			IsLiteral: false,
+			ArgIndex:  argIdx,
+			IsError:   true,
+		})
+		return ParseResult{
+			Words:         words,
+			Suggestions:   nil,
+			SyntaxPreview: "",
+			ErrorIdx:      errorIdx,
+			CurrentParser: "",
+			CurrentNode:   currentNode,
+		}
+	}
+
+	var matchedLast *BrigadierNode
+	var matchedLastName string
+	if currentNode.Children != nil {
+		if child, exists := currentNode.Children[lastWord]; exists && child.Type == "literal" {
+			matchedLast = child
+			matchedLastName = lastWord
+		} else {
+			for name, child := range currentNode.Children {
+				if child.Type == "argument" {
+					if isValidArgValue(lastWord, child.Parser, child.GetRegistry(), true) {
+						matchedLast = child
+						matchedLastName = name
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if currentNode.Children != nil {
+		var keys []string
+		for k := range currentNode.Children {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			child := currentNode.Children[key]
+			if child.Type == "literal" {
+				if strings.HasPrefix(key, lastWord) {
+					suggestVal := key
+					if isFirstWord && hasSlash {
+						suggestVal = "/" + key
+					}
+					suggestions = append(suggestions, suggestVal)
+				}
+				syntaxParts = append(syntaxParts, key)
+			} else if child.Type == "argument" {
+				list := GetDynamicSuggestions(child.Parser, child.GetRegistry())
+				var sortedList []string
+				if list != nil {
+					sortedList = make([]string, len(list))
+					copy(sortedList, list)
+					sort.Strings(sortedList)
+				}
+				for _, item := range sortedList {
+					cleanItem := strings.TrimPrefix(item, "minecraft:")
+					if strings.HasPrefix(item, lastWord) || strings.HasPrefix(cleanItem, lastWord) {
+						suggestions = append(suggestions, item)
+					}
+				}
+				syntaxParts = append(syntaxParts, "<"+key+">")
+			}
+		}
+	}
+
+	if matchedLast != nil && matchedLast.Type == "argument" {
+		currentParser = matchedLast.Parser
+		registry = matchedLast.GetRegistry()
+	}
+
+	lastIsError := false
+	if lastWord != "" {
+		hasValidMatch := false
+		if matchedLast != nil {
+			hasValidMatch = true
+		} else if currentNode.Children != nil {
+			for key, child := range currentNode.Children {
+				if child.Type == "literal" && strings.HasPrefix(key, lastWord) {
+					hasValidMatch = true
+					break
+				}
+			}
+		}
+		if !hasValidMatch {
+			lastIsError = true
+			errorIdx = len(rawWords) - 1
+		}
+	}
+
+	lastIsLiteral := false
+	if matchedLast != nil && matchedLast.Type == "literal" {
+		lastIsLiteral = true
+	}
+
+	if lastWord != "" {
+		dispText := lastWord
+		if len(rawWords) == 1 && hasSlash {
+			dispText = "/" + lastWord
+		}
+		words = append(words, ParsedWord{
+			Text:      dispText,
+			IsLiteral: lastIsLiteral,
+			ArgIndex:  argIdx,
+			IsError:   lastIsError,
+		})
+	}
+
+	var nextSyntaxPreview string
+	if len(syntaxParts) > 0 {
+		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
+	}
+
+	activeNode := currentNode
+	activeNodeName := lastNodeName
+	if matchedLast != nil && !lastIsError {
+		activeNode = matchedLast
+		activeNodeName = matchedLastName
+	}
+
+	return ParseResult{
+		Words:           words,
+		Suggestions:     suggestions,
+		SyntaxPreview:   nextSyntaxPreview,
+		ErrorIdx:        errorIdx,
+		CurrentParser:   currentParser,
+		CurrentNode:     activeNode,
+		Registry:        registry,
+		CurrentNodeName: activeNodeName,
+	}
+}
+
+// GetSyntaxGuides returns possible command paths from a given node.
+func GetSyntaxGuides(node *BrigadierNode, prefix string) []string {
+	if node == nil {
+		return nil
+	}
+
+	var results []string
+	var dfs func(n *BrigadierNode, currentPath []string)
+	dfs = func(n *BrigadierNode, currentPath []string) {
+		if n.Executable {
+			results = append(results, strings.Join(currentPath, " "))
+		}
+
+		if n.Children == nil || len(n.Children) == 0 {
+			return
+		}
+
+		var keys []string
+		for k := range n.Children {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			child := n.Children[k]
+			var segment string
+			if child.Type == "literal" {
+				segment = k
+			} else {
+				segment = "<" + k + ">"
+			}
+			dfs(child, append(currentPath, segment))
+		}
+	}
+
+	var initialPath []string
+	if prefix != "" {
+		initialPath = []string{prefix}
+	}
+
+	if node.Children != nil {
+		var keys []string
+		for k := range node.Children {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			child := node.Children[k]
+			var segment string
+			if child.Type == "literal" {
+				segment = k
+			} else {
+				segment = "<" + k + ">"
+			}
+			dfs(child, append(initialPath, segment))
+		}
+	}
+
+	return results
 }
