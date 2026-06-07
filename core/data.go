@@ -37,6 +37,26 @@ type EnchantmentData struct {
 	MaxLevel int    `json:"maxLevel"`
 }
 
+type BrigadierNode struct {
+	Type       string                    `json:"type"`
+	Parser     string                    `json:"parser,omitempty"`
+	Executable bool                      `json:"executable,omitempty"`
+	Properties map[string]interface{}    `json:"properties,omitempty"`
+	Children   map[string]*BrigadierNode `json:"children,omitempty"`
+}
+
+func (n *BrigadierNode) GetRegistry() string {
+	if n.Properties == nil {
+		return ""
+	}
+	if reg, exists := n.Properties["registry"]; exists {
+		if str, ok := reg.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
 var (
 	Blocks       []string
 	Effects      []string
@@ -44,6 +64,7 @@ var (
 	Items        []string
 	Sounds       []string
 	Entities     []string
+	CommandTree  BrigadierNode
 )
 
 // LoadData reads and decodes the embedded JSON files into memory.
@@ -100,6 +121,15 @@ func LoadData() error {
 	}
 	if err := json.Unmarshal(entityBytes, &Entities); err != nil {
 		return fmt.Errorf("failed to parse entities.json: %w", err)
+	}
+
+	// 7. Commands
+	commandBytes, err := dataFS.ReadFile("data/commands.json")
+	if err != nil {
+		return fmt.Errorf("failed to read commands.json: %w", err)
+	}
+	if err := json.Unmarshal(commandBytes, &CommandTree); err != nil {
+		return fmt.Errorf("failed to parse commands.json: %w", err)
 	}
 
 	return nil

@@ -11,15 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CommandNode represents a node in the Minecraft command syntax tree.
-type CommandNode struct {
-	Name        string
-	IsLiteral   bool
-	Children    []CommandNode
-	Description string
-	DynamicList func() []string
-}
-
 // WordStyle represents the styling attributes for a single input word.
 type WordStyle struct {
 	Text      string
@@ -33,255 +24,36 @@ type styledChar struct {
 	style lipgloss.Style
 }
 
-// 簡易コマンドツリー定義
-var commandTree = CommandNode{
-	Name:      "root",
-	IsLiteral: true,
-	Children: []CommandNode{
-		// 1. /give <targets> <item> [<count>]
-		{
-			Name:      "/give",
-			IsLiteral: true,
-			Children: []CommandNode{
-				{
-					Name:      "<targets>",
-					IsLiteral: false,
-					DynamicList: func() []string {
-						return []string{"@p", "@a", "@r", "@s", "@e"}
-					},
-					Children: []CommandNode{
-						{
-							Name:      "<item>",
-							IsLiteral: false,
-							DynamicList: func() []string {
-								return core.Items
-							},
-							Children: []CommandNode{
-								{
-									Name:      "[<count>]",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"1", "64"}
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		// 2. /summon <entity> [<pos>] [<nbt>]
-		{
-			Name:      "/summon",
-			IsLiteral: true,
-			Children: []CommandNode{
-				{
-					Name:      "<entity>",
-					IsLiteral: false,
-					DynamicList: func() []string {
-						return core.Entities
-					},
-					Children: []CommandNode{
-						{
-							Name:      "[<pos>]",
-							IsLiteral: false,
-							DynamicList: func() []string {
-								return []string{"~ ~ ~"}
-							},
-							Children: []CommandNode{
-								{
-									Name:      "[<nbt>]",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"{}", "{NoAI:1b}", "{Silent:1b}"}
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		// 3. /item <replace|modify>
-		{
-			Name:      "/item",
-			IsLiteral: true,
-			Children: []CommandNode{
-				// /item replace
-				{
-					Name:      "replace",
-					IsLiteral: true,
-					Children: []CommandNode{
-						// block <pos> <slot> with <item> [<count>]
-						{
-							Name:      "block",
-							IsLiteral: true,
-							Children: []CommandNode{
-								{
-									Name:      "<pos>",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"~ ~ ~"}
-									},
-									Children: []CommandNode{
-										{
-											Name:      "<slot>",
-											IsLiteral: false,
-											DynamicList: func() []string {
-												return []string{"container.0", "weapon.mainhand", "armor.chest"}
-											},
-											Children: []CommandNode{
-												{
-													Name:      "with",
-													IsLiteral: true,
-													Children: []CommandNode{
-														{
-															Name:      "<item>",
-															IsLiteral: false,
-															DynamicList: func() []string {
-																return core.Items
-															},
-															Children: []CommandNode{
-																{
-																	Name:      "[<count>]",
-																	IsLiteral: false,
-																	DynamicList: func() []string {
-																		return []string{"1", "64"}
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						// entity <targets> <slot> with <item> [<count>]
-						{
-							Name:      "entity",
-							IsLiteral: true,
-							Children: []CommandNode{
-								{
-									Name:      "<targets>",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"@p", "@a", "@r", "@s", "@e"}
-									},
-									Children: []CommandNode{
-										{
-											Name:      "<slot>",
-											IsLiteral: false,
-											DynamicList: func() []string {
-												return []string{"weapon.mainhand", "armor.chest", "armor.head"}
-											},
-											Children: []CommandNode{
-												{
-													Name:      "with",
-													IsLiteral: true,
-													Children: []CommandNode{
-														{
-															Name:      "<item>",
-															IsLiteral: false,
-															DynamicList: func() []string {
-																return core.Items
-															},
-															Children: []CommandNode{
-																{
-																	Name:      "[<count>]",
-																	IsLiteral: false,
-																	DynamicList: func() []string {
-																		return []string{"1", "64"}
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				// /item modify
-				{
-					Name:      "modify",
-					IsLiteral: true,
-					Children: []CommandNode{
-						// block <pos> <slot> <modifier>
-						{
-							Name:      "block",
-							IsLiteral: true,
-							Children: []CommandNode{
-								{
-									Name:      "<pos>",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"~ ~ ~"}
-									},
-									Children: []CommandNode{
-										{
-											Name:      "<slot>",
-											IsLiteral: false,
-											DynamicList: func() []string {
-												return []string{"container.0", "weapon.mainhand"}
-											},
-											Children: []CommandNode{
-												{
-													Name:      "<modifier>",
-													IsLiteral: false,
-													DynamicList: func() []string {
-														return []string{"example_modifier"}
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						// entity <targets> <slot> <modifier>
-						{
-							Name:      "entity",
-							IsLiteral: true,
-							Children: []CommandNode{
-								{
-									Name:      "<targets>",
-									IsLiteral: false,
-									DynamicList: func() []string {
-										return []string{"@p", "@a", "@r", "@s", "@e"}
-									},
-									Children: []CommandNode{
-										{
-											Name:      "<slot>",
-											IsLiteral: false,
-											DynamicList: func() []string {
-												return []string{"weapon.mainhand", "armor.chest"}
-											},
-											Children: []CommandNode{
-												{
-													Name:      "<modifier>",
-													IsLiteral: false,
-													DynamicList: func() []string {
-														return []string{"example_modifier"}
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	},
+// getDynamicSuggestions returns dynamic autocomplete list based on brigadier parser types.
+func getDynamicSuggestions(parser string, registry string) []string {
+	switch parser {
+	case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
+		return []string{"@p", "@a", "@r", "@s", "@e"}
+	case "minecraft:item_stack", "minecraft:item_parser", "minecraft:item_enchantment", "minecraft:item_slot":
+		return core.Items
+	case "minecraft:entity_summon":
+		return core.Entities
+	case "minecraft:mob_effect":
+		return core.Effects
+	case "minecraft:enchantment":
+		var enchNames []string
+		for _, e := range core.Enchantments {
+			enchNames = append(enchNames, e.Name)
+		}
+		return enchNames
+	case "minecraft:block_pos", "minecraft:vec3", "minecraft:vec2", "minecraft:column_pos":
+		return []string{"~ ~ ~"}
+	case "minecraft:block_state", "minecraft:block_input":
+		return core.Blocks
+	case "minecraft:resource_key", "minecraft:resource":
+		if registry == "minecraft:attribute" {
+			return []string{"generic.max_health", "generic.movement_speed", "generic.attack_damage"}
+		}
+		if registry == "minecraft:dimension" {
+			return []string{"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"}
+		}
+	}
+	return nil
 }
 
 // combineCoordinates joins consecutive coordinate tokens into a single word token.
@@ -320,12 +92,14 @@ func combineCoordinates(rawWords []string) []string {
 
 // getHighlightAndSuggestions parses input string against command tree to produce word styles, suggestions, and next syntax preview.
 func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
-	rawWords := combineCoordinates(strings.Split(input, " "))
+	// 先頭の "/" を除去してパース開始する
+	cleanInput := strings.TrimPrefix(input, "/")
+	rawWords := combineCoordinates(strings.Split(cleanInput, " "))
 	var styles []WordStyle
-	currentNode := &commandTree
+	currentNode := &core.CommandTree
 	argIdx := 0
 
-	// Trailing empty word indicates user wants to see next suggestions
+	// 各確定単語に対してツリーをたどる
 	for i, w := range rawWords {
 		isLast := i == len(rawWords)-1
 		if isLast {
@@ -335,33 +109,40 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 			continue
 		}
 
-		var matched *CommandNode
-		for _, child := range currentNode.Children {
-			if child.IsLiteral {
-				if child.Name == w {
-					matched = &child
-					break
-				}
+		var matched *core.BrigadierNode
+		if currentNode.Children != nil {
+			if child, exists := currentNode.Children[w]; exists && child.Type == "literal" {
+				matched = child
 			} else {
-				// dynamic placeholders match anything that doesn't match literal sibling
-				matched = &child
-				break
+				// リテラルとして完全一致しない場合は、引数 (type == "argument") のノードを探す
+				for _, child := range currentNode.Children {
+					if child.Type == "argument" {
+						matched = child
+						break
+					}
+				}
 			}
 		}
 
+		dispText := w
+		if i == 0 && strings.HasPrefix(input, "/") {
+			dispText = "/" + w
+		}
+
 		if matched != nil {
+			isLiteral := matched.Type == "literal"
 			styles = append(styles, WordStyle{
-				Text:      w,
-				IsLiteral: matched.IsLiteral,
+				Text:      dispText,
+				IsLiteral: isLiteral,
 				ArgIndex:  argIdx,
 			})
-			if !matched.IsLiteral {
+			if !isLiteral {
 				argIdx++
 			}
 			currentNode = matched
 		} else {
 			styles = append(styles, WordStyle{
-				Text:      w,
+				Text:      dispText,
 				IsLiteral: false,
 				ArgIndex:  argIdx,
 			})
@@ -371,50 +152,57 @@ func getHighlightAndSuggestions(input string) ([]WordStyle, []string, string) {
 
 	lastWord := rawWords[len(rawWords)-1]
 	var suggestions []string
-	var nextSyntaxPreview string
 	var syntaxParts []string
 
-	for _, child := range currentNode.Children {
-		if child.IsLiteral {
-			if strings.HasPrefix(child.Name, lastWord) {
-				suggestions = append(suggestions, child.Name)
-			}
-		} else {
-			if child.DynamicList != nil {
-				list := child.DynamicList()
+	isFirstWord := len(rawWords) == 1
+	hasSlash := strings.HasPrefix(input, "/")
+
+	if currentNode.Children != nil {
+		for key, child := range currentNode.Children {
+			if child.Type == "literal" {
+				if strings.HasPrefix(key, lastWord) {
+					suggestVal := key
+					if isFirstWord && hasSlash {
+						suggestVal = "/" + key
+					}
+					suggestions = append(suggestions, suggestVal)
+				}
+				syntaxParts = append(syntaxParts, key)
+			} else if child.Type == "argument" {
+				list := getDynamicSuggestions(child.Parser, child.GetRegistry())
 				for _, item := range list {
 					cleanItem := strings.TrimPrefix(item, "minecraft:")
 					if strings.HasPrefix(item, lastWord) || strings.HasPrefix(cleanItem, lastWord) {
 						suggestions = append(suggestions, item)
 					}
 				}
-			} else {
-				if strings.HasPrefix(child.Name, lastWord) {
-					suggestions = append(suggestions, child.Name)
-				}
+				syntaxParts = append(syntaxParts, "<"+key+">")
 			}
 		}
-		syntaxParts = append(syntaxParts, child.Name)
 	}
 
-	if len(syntaxParts) > 0 {
-		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
-	}
-
-	// Last word styling
+	// 最後の単語（入力中）自体のスタイル割り当て
 	var lastIsLiteral bool
-	for _, child := range currentNode.Children {
-		if child.IsLiteral && child.Name == lastWord {
+	if currentNode.Children != nil {
+		if child, exists := currentNode.Children[lastWord]; exists && child.Type == "literal" {
 			lastIsLiteral = true
-			break
 		}
 	}
 	if lastWord != "" {
+		dispText := lastWord
+		if len(rawWords) == 1 && strings.HasPrefix(input, "/") {
+			dispText = "/" + lastWord
+		}
 		styles = append(styles, WordStyle{
-			Text:      lastWord,
+			Text:      dispText,
 			IsLiteral: lastIsLiteral,
 			ArgIndex:  argIdx,
 		})
+	}
+
+	var nextSyntaxPreview string
+	if len(syntaxParts) > 0 {
+		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
 	}
 
 	return styles, suggestions, nextSyntaxPreview
