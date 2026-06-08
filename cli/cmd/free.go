@@ -370,7 +370,9 @@ func (m freeModel) renderTopArea(height int) string {
 		title := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55")).Render("引数情報:")
 		
 		parserDisp := res.CurrentParser
-		if jp, exists := core.ParserTypeNames[res.CurrentParser]; exists {
+		if regDisp, exists := core.RegistryTypeNames[res.Registry]; exists {
+			parserDisp = regDisp
+		} else if jp, exists := core.ParserTypeNames[res.CurrentParser]; exists {
 			parserDisp = jp
 		}
 		
@@ -378,7 +380,9 @@ func (m freeModel) renderTopArea(height int) string {
 		typeLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FFFF")).Render("  データ型: ") + parserDisp + propDesc
 		
 		var descLine string
-		if desc, exists := core.ArgumentDescriptions[res.CurrentNodeName]; exists {
+		if regDesc, exists := core.RegistryDescriptions[res.Registry]; exists {
+			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(regDesc)
+		} else if desc, exists := core.ArgumentDescriptions[res.CurrentNodeName]; exists {
 			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(desc)
 		}
 		

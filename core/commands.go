@@ -466,6 +466,24 @@ var ParserTypeNames = map[string]string{
 	"brigadier:bool":              "真偽値 (true / false)",
 }
 
+// RegistryTypeNames maps Brigadier properties.registry values to friendly names.
+var RegistryTypeNames = map[string]string{
+	"minecraft:entity_type": "エンティティの名前空間ID",
+	"minecraft:mob_effect":  "ステータス効果の名前空間ID",
+	"minecraft:enchantment": "エンチャントの名前空間ID",
+	"minecraft:dimension":   "ディメンションの名前空間ID",
+	"minecraft:attribute":   "属性の名前空間ID",
+}
+
+// RegistryDescriptions maps Brigadier properties.registry values to their real explanations.
+var RegistryDescriptions = map[string]string{
+	"minecraft:entity_type": "エンティティのIDを入力する",
+	"minecraft:mob_effect":  "ステータス効果のIDを入力する",
+	"minecraft:enchantment": "エンチャントのIDを入力する",
+	"minecraft:dimension":   "ディメンションのIDを入力する",
+	"minecraft:attribute":   "属性のIDを入力する",
+}
+
 // CommandDescriptions maps Minecraft commands to their Japanese descriptions.
 var CommandDescriptions = map[string]string{
 	"ability":         "プレイヤーのアビリティを設定または確認します。",
@@ -530,7 +548,7 @@ var CommandDescriptions = map[string]string{
 	"tellraw":         "プレイヤーにJSONフォーマットのテキストメッセージを表示します。",
 	"time":            "ワールドの時間を変更または照会します。",
 	"title":           "プレイヤーの画面にタイトルテキストを表示します。",
-	"tp":              "エンティティをテレポートします（teleportの短縮形）。",
+	"tp":              "エンティティをテレポートします（teleport of the tp ではない）。",
 	"trigger":         "トリガー型のスコアボード目的を有効化します。",
 	"weather":         "天候（晴れ、雨、雷雨）を設定します。",
 	"worldborder":     "ワールド境界線を管理します。",
@@ -597,7 +615,7 @@ func GetDynamicSuggestions(parser string, registry string) []string {
 		case "minecraft:mob_effect":
 			return Effects
 		case "minecraft:enchantment":
-			var enchNames []string
+			var 	enchNames []string
 			for _, e := range Enchantments {
 				enchNames = append(enchNames, e.Name)
 			}
@@ -619,7 +637,7 @@ func GetDynamicSuggestions(parser string, registry string) []string {
 	case "minecraft:mob_effect":
 		return Effects
 	case "minecraft:enchantment":
-		var enchNames []string
+		var 	enchNames []string
 		for _, e := range Enchantments {
 			enchNames = append(enchNames, e.Name)
 		}
@@ -732,7 +750,7 @@ func isValidArgValue(w string, parser string, registry string, isLast bool) bool
 // ParseCommand parses a raw input command line dynamically against the commands tree.
 func ParseCommand(input string) ParseResult {
 	cleanInput := strings.TrimPrefix(input, "/")
-	rawWords := combineCoordinates(strings.Split(cleanInput, " "))
+	tokens := strings.Split(cleanInput, " ")
 	var words []ParsedWord
 	currentNode := &CommandTree
 	argIdx := 0
@@ -741,19 +759,42 @@ func ParseCommand(input string) ParseResult {
 	var registry string
 	var lastNodeName string
 
-	for i, w := range rawWords {
-		isLast := i == len(rawWords)-1
-		if isLast {
-			break
-		}
-		if w == "" {
+	// 現在の座標引数の状態管理
+	currentPosTokensCount := 0
+	currentPosTokensRequired := 0
+
+	p := 0
+	n := len(tokens)
+
+	for p < n {
+		isLast := p == n-1
+		tok := tokens[p]
+
+		// 空トークンの処理
+		if tok == "" {
+			if isLast {
+				break
+			}
+			words = append(words, ParsedWord{
+				Text:      "",
+				IsLiteral: false,
+				ArgIndex:  argIdx,
+				IsError:   errorIdx != -1,
+			})
+			p++
 			continue
 		}
 
+		// 直前の座標引数が未完成のまま、新しい非空トークンが入力された場合のチェック
+		if errorIdx == -1 && currentPosTokensRequired > 0 && currentPosTokensCount < currentPosTokensRequired {
+			errorIdx = p
+		}
+
+		// すでにエラーが検出されている場合
 		if errorIdx != -1 {
-			dispText := w
-			if i == 0 && strings.HasPrefix(input, "/") {
-				dispText = "/" + w
+			dispText := tok
+			if p == 0 && strings.HasPrefix(input, "/") {
+				dispText = "/" + tok
 			}
 			words = append(words, ParsedWord{
 				Text:      dispText,
@@ -761,31 +802,78 @@ func ParseCommand(input string) ParseResult {
 				ArgIndex:  argIdx,
 				IsError:   true,
 			})
+			p++
 			continue
+		}
+
+		if isLast {
+			// 最後の非空トークンはループ外で処理
+			break
 		}
 
 		var matched *BrigadierNode
 		var matchedName string
+		consumedTokens := 1
+		var matchedVal string
+		var newPosCount int
+		var newPosRequired int
+		deferToLastWord := false
+
 		if currentNode.Children != nil {
-			if child, exists := currentNode.Children[w]; exists && child.Type == "literal" {
+			if child, exists := currentNode.Children[tok]; exists && child.Type == "literal" {
 				matched = child
-				matchedName = w
+				matchedName = tok
+				matchedVal = tok
 			} else {
 				for name, child := range currentNode.Children {
 					if child.Type == "argument" {
-						if isValidArgValue(w, child.Parser, child.GetRegistry(), false) {
-							matched = child
-							matchedName = name
-							break
+						val, count := getCoordinateArgVal(tokens, p, child.Parser)
+						if count > 0 {
+							requiredCount := 3
+							if child.Parser == "minecraft:vec2" || child.Parser == "minecraft:column_pos" {
+								requiredCount = 2
+							}
+							
+							// 最後(n-1)のトークンを含む、かつ座標数が足りない（未完成）場合は、
+							// ここではマッチさせずループ外で処理する
+							if p + count - 1 == n-1 && count < requiredCount {
+								deferToLastWord = true
+								break
+							}
+
+							if isValidArgValue(val, child.Parser, child.GetRegistry(), false) {
+								matched = child
+								matchedName = name
+								consumedTokens = count
+								matchedVal = val
+								newPosCount = count
+								newPosRequired = requiredCount
+								break
+							}
+						} else {
+							if isValidArgValue(tok, child.Parser, child.GetRegistry(), false) {
+								matched = child
+								matchedName = name
+								consumedTokens = 1
+								matchedVal = tok
+								break
+							}
 						}
 					}
 				}
 			}
 		}
 
-		dispText := w
-		if i == 0 && strings.HasPrefix(input, "/") {
-			dispText = "/" + w
+		if deferToLastWord {
+			break
+		}
+
+		dispText := matchedVal
+		if dispText == "" {
+			dispText = tok
+		}
+		if p == 0 && strings.HasPrefix(input, "/") {
+			dispText = "/" + dispText
 		}
 
 		if matched != nil {
@@ -799,10 +887,71 @@ func ParseCommand(input string) ParseResult {
 			if !isLiteral {
 				argIdx++
 			}
-			currentNode = matched
+			isCoord := matched.Parser == "minecraft:block_pos" || matched.Parser == "minecraft:vec3" || matched.Parser == "minecraft:vec2" || matched.Parser == "minecraft:column_pos"
+			if !isCoord || newPosCount == newPosRequired {
+				currentNode = matched
+			}
 			lastNodeName = matchedName
+			p += consumedTokens
+			currentPosTokensCount = newPosCount
+			currentPosTokensRequired = newPosRequired
 		} else {
-			errorIdx = i
+			errorIdx = p
+			words = append(words, ParsedWord{
+				Text:      dispText,
+				IsLiteral: false,
+				ArgIndex:  argIdx,
+				IsError:   true,
+			})
+			p++
+		}
+	}
+
+	var lastWord string
+	if p < n {
+		var parts []string
+		for idx := p; idx < n; idx++ {
+			tok := tokens[idx]
+			if tok != "" {
+				parts = append(parts, tok)
+			}
+		}
+		lastWord = strings.Join(parts, " ")
+	}
+
+	hasSlash := strings.HasPrefix(input, "/")
+	isFirstWord := p == 0
+
+	// 最後のトークン処理に進む前のエラーチェック
+	if errorIdx == -1 && currentPosTokensRequired > 0 && currentPosTokensCount < currentPosTokensRequired {
+		isCoord := true
+		for _, w := range strings.Fields(lastWord) {
+			if !IsValidPositionToken(w) {
+				isCoord = false
+				break
+			}
+		}
+		if !isCoord {
+			errorIdx = p
+		}
+	}
+
+	if errorIdx != -1 {
+		for idx := p; idx < n; idx++ {
+			tok := tokens[idx]
+			if tok == "" {
+				words = append(words, ParsedWord{
+					Text:      "",
+					IsLiteral: false,
+					ArgIndex:  argIdx,
+					IsError:   true,
+				})
+				continue
+			}
+			dispText := tok
+			if idx == 0 && hasSlash {
+				dispText = "/" + tok
+			}
 			words = append(words, ParsedWord{
 				Text:      dispText,
 				IsLiteral: false,
@@ -810,26 +959,6 @@ func ParseCommand(input string) ParseResult {
 				IsError:   true,
 			})
 		}
-	}
-
-	lastWord := rawWords[len(rawWords)-1]
-	var suggestions []string
-	var syntaxParts []string
-
-	isFirstWord := len(rawWords) == 1
-	hasSlash := strings.HasPrefix(input, "/")
-
-	if errorIdx != -1 {
-		dispText := lastWord
-		if len(rawWords) == 1 && hasSlash {
-			dispText = "/" + lastWord
-		}
-		words = append(words, ParsedWord{
-			Text:      dispText,
-			IsLiteral: false,
-			ArgIndex:  argIdx,
-			IsError:   true,
-		})
 		return ParseResult{
 			Words:         words,
 			Suggestions:   nil,
@@ -841,53 +970,56 @@ func ParseCommand(input string) ParseResult {
 	}
 
 	// item component suggestion detection
-	if lastIdx := strings.LastIndex(lastWord, "["); lastIdx != -1 && !strings.Contains(lastWord[lastIdx:], "]") {
-		prefixPart := lastWord[:lastIdx+1]
-		componentPart := lastWord[lastIdx+1:]
-		segments := strings.Split(componentPart, ",")
-		lastSeg := segments[len(segments)-1]
+	var suggestions []string
+	if lastWord != "" {
+		if lastIdx := strings.LastIndex(lastWord, "["); lastIdx != -1 && !strings.Contains(lastWord[lastIdx:], "]") {
+			prefixPart := lastWord[:lastIdx+1]
+			componentPart := lastWord[lastIdx+1:]
+			segments := strings.Split(componentPart, ",")
+			lastSeg := segments[len(segments)-1]
 
-		if !strings.Contains(lastSeg, "=") {
-			argPrefix := ""
-			if len(segments) > 1 {
-				argPrefix = strings.Join(segments[:len(segments)-1], ",") + ","
-			}
+			if !strings.Contains(lastSeg, "=") {
+				argPrefix := ""
+				if len(segments) > 1 {
+					argPrefix = strings.Join(segments[:len(segments)-1], ",") + ","
+				}
 
-			for _, comp := range Components {
-				cleanComp := strings.TrimPrefix(comp, "minecraft:")
-				if strings.HasPrefix(comp, lastSeg) || strings.HasPrefix(cleanComp, lastSeg) {
-					suggestVal := prefixPart + argPrefix + comp
-					if isFirstWord && hasSlash {
-						suggestVal = "/" + suggestVal
+				for _, comp := range Components {
+					cleanComp := strings.TrimPrefix(comp, "minecraft:")
+					if strings.HasPrefix(comp, lastSeg) || strings.HasPrefix(cleanComp, lastSeg) {
+						suggestVal := prefixPart + argPrefix + comp
+						if isFirstWord && hasSlash {
+							suggestVal = "/" + suggestVal
+						}
+						suggestions = append(suggestions, suggestVal)
 					}
-					suggestions = append(suggestions, suggestVal)
 				}
-			}
 
-			if len(suggestions) > 0 {
-				sort.Strings(suggestions)
-				
-				lastIsLiteral := false
-				dispText := lastWord
-				if len(rawWords) == 1 && hasSlash {
-					dispText = "/" + lastWord
-				}
-				words = append(words, ParsedWord{
-					Text:      dispText,
-					IsLiteral: lastIsLiteral,
-					ArgIndex:  argIdx,
-					IsError:   false,
-				})
+				if len(suggestions) > 0 {
+					sort.Strings(suggestions)
+					
+					lastIsLiteral := false
+					dispText := lastWord
+					if isFirstWord && hasSlash {
+						dispText = "/" + lastWord
+					}
+					words = append(words, ParsedWord{
+						Text:      dispText,
+						IsLiteral: lastIsLiteral,
+						ArgIndex:  argIdx,
+						IsError:   false,
+					})
 
-				return ParseResult{
-					Words:           words,
-					Suggestions:     suggestions,
-					SyntaxPreview:   "item_component",
-					ErrorIdx:        errorIdx,
-					CurrentParser:   "minecraft:item_component",
-					CurrentNode:     currentNode,
-					Registry:        registry,
-					CurrentNodeName: "components",
+					return ParseResult{
+						Words:           words,
+						Suggestions:     suggestions,
+						SyntaxPreview:   "item_component",
+						ErrorIdx:        errorIdx,
+						CurrentParser:   "minecraft:item_component",
+						CurrentNode:     currentNode,
+						Registry:        registry,
+						CurrentNodeName: "components",
+					}
 				}
 			}
 		}
@@ -895,23 +1027,114 @@ func ParseCommand(input string) ParseResult {
 
 	var matchedLast *BrigadierNode
 	var matchedLastName string
+	var lastIsError bool
+	var matchedLastVal string
+
 	if currentNode.Children != nil {
-		if child, exists := currentNode.Children[lastWord]; exists && child.Type == "literal" {
-			matchedLast = child
-			matchedLastName = lastWord
-		} else {
+		if lastWord != "" {
+			if child, exists := currentNode.Children[lastWord]; exists && child.Type == "literal" {
+				matchedLast = child
+				matchedLastName = lastWord
+				matchedLastVal = lastWord
+			}
+		}
+		if matchedLast == nil {
 			for name, child := range currentNode.Children {
 				if child.Type == "argument" {
-					if isValidArgValue(lastWord, child.Parser, child.GetRegistry(), true) {
-						matchedLast = child
-						matchedLastName = name
-						break
+					isCoord := false
+					var requiredCount int
+					if child.Parser == "minecraft:block_pos" || child.Parser == "minecraft:vec3" {
+						isCoord = true
+						requiredCount = 3
+					} else if child.Parser == "minecraft:vec2" || child.Parser == "minecraft:column_pos" {
+						isCoord = true
+						requiredCount = 2
+					}
+
+					if isCoord {
+						parts := strings.Fields(lastWord)
+						validCount := 0
+						allValid := true
+						for _, p := range parts {
+							if IsValidPositionToken(p) {
+								validCount++
+							} else {
+								allValid = false
+							}
+						}
+						if allValid && validCount <= requiredCount && (validCount > 0 || lastWord == "") {
+							matchedLastVal = lastWord
+							matchedLast = child
+							matchedLastName = name
+							currentPosTokensCount = validCount
+							currentPosTokensRequired = requiredCount
+							break
+						}
+					} else {
+						if isValidArgValue(lastWord, child.Parser, child.GetRegistry(), true) {
+							matchedLast = child
+							matchedLastName = name
+							matchedLastVal = lastWord
+							break
+						}
 					}
 				}
 			}
 		}
 	}
 
+	if matchedLast != nil && matchedLast.Type == "argument" {
+		currentParser = matchedLast.Parser
+		registry = matchedLast.GetRegistry()
+	}
+
+	if lastWord != "" {
+		hasValidMatch := false
+		if matchedLast != nil {
+			hasValidMatch = true
+		} else if matchedLastVal != "" {
+			hasValidMatch = true
+		} else if currentNode.Children != nil {
+			for key, child := range currentNode.Children {
+				if child.Type == "literal" && strings.HasPrefix(key, lastWord) {
+					hasValidMatch = true
+					break
+				}
+			}
+		}
+		if !hasValidMatch {
+			lastIsError = true
+			errorIdx = p
+		}
+	}
+
+	lastIsLiteral := false
+	if matchedLast != nil && matchedLast.Type == "literal" {
+		lastIsLiteral = true
+	}
+
+	if lastWord != "" {
+		dispText := lastWord
+		if isFirstWord && hasSlash {
+			dispText = "/" + dispText
+		}
+		words = append(words, ParsedWord{
+			Text:      dispText,
+			IsLiteral: lastIsLiteral,
+			ArgIndex:  argIdx,
+			IsError:   lastIsError,
+		})
+	}
+
+	var syntaxParts []string
+	activeNode := currentNode
+	activeNodeName := lastNodeName
+	if matchedLast != nil && !lastIsError {
+		activeNode = matchedLast
+		activeNodeName = matchedLastName
+	}
+
+	// サジェストの走査は遷移前の currentNode の子供をベースにする
 	if currentNode.Children != nil {
 		var keys []string
 		for k := range currentNode.Children {
@@ -949,58 +1172,9 @@ func ParseCommand(input string) ParseResult {
 		}
 	}
 
-	if matchedLast != nil && matchedLast.Type == "argument" {
-		currentParser = matchedLast.Parser
-		registry = matchedLast.GetRegistry()
-	}
-
-	lastIsError := false
-	if lastWord != "" {
-		hasValidMatch := false
-		if matchedLast != nil {
-			hasValidMatch = true
-		} else if currentNode.Children != nil {
-			for key, child := range currentNode.Children {
-				if child.Type == "literal" && strings.HasPrefix(key, lastWord) {
-					hasValidMatch = true
-					break
-				}
-			}
-		}
-		if !hasValidMatch {
-			lastIsError = true
-			errorIdx = len(rawWords) - 1
-		}
-	}
-
-	lastIsLiteral := false
-	if matchedLast != nil && matchedLast.Type == "literal" {
-		lastIsLiteral = true
-	}
-
-	if lastWord != "" {
-		dispText := lastWord
-		if len(rawWords) == 1 && hasSlash {
-			dispText = "/" + lastWord
-		}
-		words = append(words, ParsedWord{
-			Text:      dispText,
-			IsLiteral: lastIsLiteral,
-			ArgIndex:  argIdx,
-			IsError:   lastIsError,
-		})
-	}
-
 	var nextSyntaxPreview string
 	if len(syntaxParts) > 0 {
 		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
-	}
-
-	activeNode := currentNode
-	activeNodeName := lastNodeName
-	if matchedLast != nil && !lastIsError {
-		activeNode = matchedLast
-		activeNodeName = matchedLastName
 	}
 
 	return ParseResult{
@@ -1013,6 +1187,39 @@ func ParseCommand(input string) ParseResult {
 		Registry:        registry,
 		CurrentNodeName: activeNodeName,
 	}
+}
+
+// getCoordinateArgVal extracts consecutive valid coordinate tokens up to the maximum required.
+func getCoordinateArgVal(tokens []string, start int, parser string) (string, int) {
+	var maxRequired int
+	if parser == "minecraft:block_pos" || parser == "minecraft:vec3" {
+		maxRequired = 3
+	} else if parser == "minecraft:vec2" || parser == "minecraft:column_pos" {
+		maxRequired = 2
+	} else {
+		return "", 0
+	}
+
+	var parts []string
+	idx := start
+	n := len(tokens)
+	lastConsumedIdx := start
+
+	for idx < n && len(parts) < maxRequired {
+		tok := tokens[idx]
+		if tok == "" {
+			idx++
+			continue
+		}
+		if IsValidPositionToken(tok) {
+			parts = append(parts, tok)
+			idx++
+			lastConsumedIdx = idx
+		} else {
+			break
+		}
+	}
+	return strings.Join(parts, " "), lastConsumedIdx - start
 }
 
 // GetSyntaxGuides returns possible command paths from a given node.

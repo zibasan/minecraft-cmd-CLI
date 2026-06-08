@@ -200,6 +200,25 @@ func TestParseCommandAndSyntaxGuides(t *testing.T) {
 	if !foundSpeed {
 		t.Errorf("expected to find 'minecraft:speed' or 'speed' in effect suggestions, got: %v", resEffect.Suggestions)
 	}
+
+	// 7. Coordinate incompleteness test
+	resCoordErr := ParseCommand("/summon zombie ~ ~ {NoAI:1b}")
+	foundCoordError := false
+	for _, w := range resCoordErr.Words {
+		if w.Text == "{NoAI:1b}" && w.IsError {
+			foundCoordError = true
+			break
+		}
+	}
+	if !foundCoordError {
+		t.Errorf("expected '{NoAI:1b}' to be marked as error due to incomplete coordinates, words: %+v", resCoordErr.Words)
+	}
+
+	// 8. Incomplete coordinate at the end of input should NOT be an error
+	resCoordOk := ParseCommand("/summon zombie ~ ~")
+	if resCoordOk.ErrorIdx != -1 {
+		t.Errorf("expected no error for '/summon zombie ~ ~' (user still typing), got error at %d, words: %+v", resCoordOk.ErrorIdx, resCoordOk.Words)
+	}
 }
 
 
