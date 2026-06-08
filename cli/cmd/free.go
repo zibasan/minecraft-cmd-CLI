@@ -172,7 +172,9 @@ func (m freeModel) Init() tea.Cmd {
 }
 
 func (m *freeModel) updateSuggestions() {
-	_, suggestions, _, _, currentParser := getHighlightAndSuggestions(string(m.input))
+	// Generate suggestions based on input string up to the cursor position
+	cursorStr := string(m.input[:m.cursorIdx])
+	_, suggestions, _, _, currentParser := getHighlightAndSuggestions(cursorStr)
 	m.suggestions = suggestions
 	m.currentParser = currentParser
 	if m.selectedSuggest >= len(m.suggestions) {
@@ -368,24 +370,35 @@ func (m freeModel) renderTopArea(height int) string {
 	var argGuidance string
 	if res.CurrentNode != nil && res.CurrentNode.Type == "argument" {
 		title := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF55")).Render("引数情報:")
-		
-		parserDisp := res.CurrentParser
+
+		parserDisp := res.OriginalParser
+		if parserDisp == "" {
+			parserDisp = res.CurrentParser
+		}
+
 		if regDisp, exists := core.RegistryTypeNames[res.Registry]; exists {
 			parserDisp = regDisp
-		} else if jp, exists := core.ParserTypeNames[res.CurrentParser]; exists {
+		} else if jp, exists := core.ParserTypeNames[parserDisp]; exists {
 			parserDisp = jp
 		}
-		
+
 		propDesc := res.CurrentNode.GetPropertiesDescription()
 		typeLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#55FFFF")).Render("  データ型: ") + parserDisp + propDesc
-		
+
 		var descLine string
-		if regDesc, exists := core.RegistryDescriptions[res.Registry]; exists {
+		helpMsg := core.GetParserHelpMessage(res.OriginalParser)
+		if helpMsg == "" {
+			helpMsg = core.GetParserHelpMessage(res.CurrentParser)
+		}
+
+		if helpMsg != "" {
+			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(helpMsg)
+		} else if regDesc, exists := core.RegistryDescriptions[res.Registry]; exists {
 			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(regDesc)
 		} else if desc, exists := core.ArgumentDescriptions[res.CurrentNodeName]; exists {
 			descLine = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#55FF55")).Render("  説明: ") + lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Render(desc)
 		}
-		
+
 		argGuidance = "\n" + title + "\n" + typeLine + descLine
 	}
 

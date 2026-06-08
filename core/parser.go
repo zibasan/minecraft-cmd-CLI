@@ -140,6 +140,7 @@ type ParseResult struct {
 	SyntaxPreview   string
 	ErrorIdx        int
 	CurrentParser   string
+	OriginalParser  string
 	CurrentNode     *BrigadierNode
 	Registry        string
 	CurrentNodeName string
@@ -255,6 +256,46 @@ func isValidArgValue(w string, parser string, registry string, isLast bool) bool
 	return true
 }
 
+// isIncompleteBrackets checks if the string has unclosed brackets [ or {
+func isIncompleteBrackets(s string) bool {
+	squareCount := 0
+	curlyCount := 0
+	for _, r := range s {
+		if r == '[' {
+			squareCount++
+		} else if r == ']' {
+			squareCount--
+		} else if r == '{' {
+			curlyCount++
+		} else if r == '}' {
+			curlyCount--
+		}
+	}
+	return squareCount > 0 || curlyCount > 0
+}
+
+// isCompletedBrackets checks if the string contains brackets [ or { and all are closed
+func isCompletedBrackets(s string) bool {
+	hasOpen := strings.Contains(s, "[") || strings.Contains(s, "{")
+	if !hasOpen {
+		return false
+	}
+	squareCount := 0
+	curlyCount := 0
+	for _, r := range s {
+		if r == '[' {
+			squareCount++
+		} else if r == ']' {
+			squareCount--
+		} else if r == '{' {
+			curlyCount++
+		} else if r == '}' {
+			curlyCount--
+		}
+	}
+	return squareCount == 0 && curlyCount == 0
+}
+
 // ParseCommand parses a raw input command line dynamically against the commands tree.
 func ParseCommand(input string) ParseResult {
 	cleanInput := strings.TrimPrefix(input, "/")
@@ -264,6 +305,7 @@ func ParseCommand(input string) ParseResult {
 	argIdx := 0
 	errorIdx := -1
 	var currentParser string
+	var originalParser string
 	var registry string
 	var lastNodeName string
 
@@ -279,7 +321,8 @@ func ParseCommand(input string) ParseResult {
 		tok := tokens[p]
 
 		// 1. カッコや引数直結のコンポーネントなどの修飾トークンの場合
-		if p > 0 && !isLast && !tok.HasLeadingSpace && (strings.HasPrefix(tok.Text, "[") || strings.HasPrefix(tok.Text, "{")) {
+		isMod := strings.HasPrefix(tok.Text, "[") || strings.HasPrefix(tok.Text, "{") || isIncompleteBrackets(tok.Text) || isCompletedBrackets(tok.Text)
+		if p > 0 && !isLast && isMod {
 			prevIsError := false
 			prevArgIdx := 0
 			if len(words) > 0 {
@@ -357,10 +400,10 @@ func ParseCommand(input string) ParseResult {
 								if child.Parser == "minecraft:vec2" || child.Parser == "minecraft:column_pos" {
 									requiredCount = 2
 								}
-								
+
 								// 最後(n-1)のトークンを含む、かつ座標数が足りない（未完成）場合は、
 								// ここではマッチさせずループ外で処理する
-								if p + count - 1 == n-1 && count < requiredCount {
+								if p+count-1 == n-1 && count < requiredCount {
 									deferToLastWord = true
 									break
 								}
@@ -497,84 +540,15 @@ func ParseCommand(input string) ParseResult {
 		}
 	}
 
-	// item component suggestion detection
-	var suggestions []string
-	if lastWord != "" {
-		if lastIdx := strings.LastIndex(lastWord, "["); lastIdx != -1 && !strings.Contains(lastWord[lastIdx:], "]") {
-			prefixPart := lastWord[:lastIdx+1]
-			componentPart := lastWord[lastIdx+1:]
-			segments := strings.Split(componentPart, ",")
-			lastSeg := segments[len(segments)-1]
-
-			if !strings.Contains(lastSeg, "=") {
-				argPrefix := ""
-				if len(segments) > 1 {
-					argPrefix = strings.Join(segments[:len(segments)-1], ",") + ","
-				}
-
-				prependPart := ""
-				if p > 0 && !lastToken.HasLeadingSpace {
-					prependPart = tokens[p-1].Text
-				}
-
-
-
-				for _, comp := range Components {
-					cleanComp := strings.TrimPrefix(comp, "minecraft:")
-					if strings.HasPrefix(comp, lastSeg) || strings.HasPrefix(cleanComp, lastSeg) {
-						suggestVal := prependPart + prefixPart + argPrefix + comp
-						if p == 0 && hasSlash {
-							suggestVal = "/" + suggestVal
-						}
-						suggestions = append(suggestions, suggestVal)
-					}
-				}
-
-				if len(suggestions) > 0 {
-					sort.Strings(suggestions)
-					
-					lastIsLiteral := false
-					dispText := lastWord
-					if p == 0 && hasSlash {
-						dispText = "/" + lastWord
-					}
-					words = append(words, ParsedWord{
-						Text:      dispText,
-						IsLiteral: lastIsLiteral,
-						ArgIndex:  argIdx,
-						IsError:   false,
-					})
-
-					return ParseResult{
-						Words:           words,
-						Suggestions:     suggestions,
-						SyntaxPreview:   "item_component",
-						ErrorIdx:        errorIdx,
-						CurrentParser:   "minecraft:item_component",
-						CurrentNode:     currentNode,
-						Registry:        registry,
-						CurrentNodeName: "components",
-						IsExecutable:    false,
-					}
-				}
-			}
-		}
-	}
-
 	var matchedLast *BrigadierNode
 	var matchedLastName string
 	var lastIsError bool
 	var matchedLastVal string
 
-	isCompletedModifier := false
-	if lastWord != "" && !lastToken.HasLeadingSpace {
-		if (strings.HasPrefix(lastWord, "[") && strings.HasSuffix(lastWord, "]")) ||
-			(strings.HasPrefix(lastWord, "{") && strings.HasSuffix(lastWord, "}")) {
-			isCompletedModifier = true
-		}
-	}
+	isCompletedModifier := isCompletedBrackets(lastWord)
+	isIncompleteModifier := isIncompleteBrackets(lastWord)
 
-	if isCompletedModifier {
+	if isCompletedModifier || isIncompleteModifier {
 		matchedLast = currentNode
 		matchedLastName = lastNodeName
 		matchedLastVal = lastWord
@@ -633,6 +607,7 @@ func ParseCommand(input string) ParseResult {
 	if matchedLast != nil && matchedLast.Type == "argument" {
 		currentParser = matchedLast.Parser
 		registry = matchedLast.GetRegistry()
+		originalParser = matchedLast.Parser
 	}
 
 	if lastWord != "" {
@@ -696,9 +671,21 @@ func ParseCommand(input string) ParseResult {
 		activeNode = currentNode
 		activeNodeName = lastNodeName
 	}
+	if isIncompleteModifier || isCompletedModifier {
+		if currentParser == "minecraft:item_stack" || currentParser == "minecraft:item_parser" {
+			currentParser = "minecraft:item_component"
+			activeNodeName = "components"
+		}
+	}
+	var prependPart string
+	if p > 0 && !lastToken.HasLeadingSpace {
+		prependPart = tokens[p-1].Text
+	}
 
-	// サジェストの走査は遷移前の currentNode の子供をベースにする
-	if currentNode.Children != nil {
+	var suggestions []string
+	if isIncompleteModifier {
+		suggestions = getModifierSuggestions(lastWord, currentParser, prependPart)
+	} else if currentNode.Children != nil {
 		var keys []string
 		for k := range currentNode.Children {
 			keys = append(keys, k)
@@ -741,8 +728,37 @@ func ParseCommand(input string) ParseResult {
 		nextSyntaxPreview = strings.Join(syntaxParts, " | ")
 	}
 
+	// 適切なタイミングでのみサジェストを行う文脈制御
+	inputTrimmed := strings.TrimRight(input, " \t\r\n")
+	hasTrailingSpace := len(input) > len(inputTrimmed)
+
+	isLastWordFullyMatched := false
+	if matchedLast != nil && lastWord != "" {
+		if matchedLast.Type == "literal" {
+			isLastWordFullyMatched = strings.ToLower(lastWord) == strings.ToLower(matchedLastVal)
+		} else {
+			isLastWordFullyMatched = isValidArgValue(lastWord, matchedLast.Parser, matchedLast.GetRegistry(), false)
+		}
+	}
+
+	isCoordsCompleted := currentPosTokensRequired > 0 && currentPosTokensCount == currentPosTokensRequired
+	hasNoChildren := activeNode != nil && (activeNode.Children == nil || len(activeNode.Children) == 0)
+
+	if !hasTrailingSpace {
+		// 1. 引数やリテラルが完全に確定しており、かつ末尾にスペースがない場合
+		// 2. または座標引数が完了している場合
+		if isLastWordFullyMatched || isCoordsCompleted {
+			suggestions = nil
+		}
+	} else {
+		// 末尾にスペースがあるが、次の子ノードが存在しない場合（コマンド終端）
+		if hasNoChildren {
+			suggestions = nil
+		}
+	}
+
 	// executable 判定（エラーがなく、座標が完全で、かつ現在のアクティブノードが executable の場合）
-	isExecutable := errorIdx == -1 && !lastIsError && activeNode != nil && activeNode.Executable &&
+	isExecutable := errorIdx == -1 && !lastIsError && !isIncompleteModifier && activeNode != nil && activeNode.Executable &&
 		(currentPosTokensRequired == 0 || currentPosTokensCount == currentPosTokensRequired)
 
 	return ParseResult{
@@ -751,9 +767,132 @@ func ParseCommand(input string) ParseResult {
 		SyntaxPreview:   nextSyntaxPreview,
 		ErrorIdx:        errorIdx,
 		CurrentParser:   currentParser,
+		OriginalParser:  originalParser,
 		CurrentNode:     activeNode,
 		Registry:        registry,
 		CurrentNodeName: activeNodeName,
 		IsExecutable:    isExecutable,
 	}
+}
+
+// selector keys that can be used inside @p[...]
+var selectorKeys = []string{
+	"sort=", "gamemode=", "limit=", "distance=", "level=", "team=",
+	"name=", "tag=", "type=", "x=", "y=", "z=", "dx=", "dy=", "dz=", "scores=",
+}
+
+// selector sort values
+var selectorSortValues = []string{"nearest", "furthest", "random", "arbitrary"}
+
+// selector gamemode values
+var selectorGamemodeValues = []string{"survival", "creative", "adventure", "spectator"}
+
+func getModifierSuggestions(lastWord string, parser string, prependPart string) []string {
+	// find the last '[' or '{'
+	idx := strings.LastIndex(lastWord, "[")
+	isBrace := false
+	if idx == -1 {
+		idx = strings.LastIndex(lastWord, "{")
+		isBrace = true
+	}
+	if idx == -1 {
+		return nil
+	}
+
+	prefixPart := lastWord[:idx+1]
+	innerPart := lastWord[idx+1:]
+
+	segments := strings.Split(innerPart, ",")
+	lastSeg := segments[len(segments)-1]
+
+	var innerPrefix string
+	if len(segments) > 1 {
+		innerPrefix = strings.Join(segments[:len(segments)-1], ",") + ","
+	}
+	fullPrefix := prependPart + prefixPart + innerPrefix
+
+	var suggestions []string
+
+	if !strings.Contains(lastSeg, "=") {
+		// Typing key
+		lastSegLower := strings.ToLower(lastSeg)
+		if isBrace {
+			for _, tag := range NbtMasterList {
+				key := tag.Key + ":"
+				if strings.HasPrefix(strings.ToLower(key), lastSegLower) {
+					suggestions = append(suggestions, fullPrefix+key)
+				}
+			}
+		} else {
+			if parser == "minecraft:entity" || parser == "minecraft:game_profile" || parser == "minecraft:score_holder" {
+				for _, key := range selectorKeys {
+					if strings.HasPrefix(strings.ToLower(key), lastSegLower) {
+						suggestions = append(suggestions, fullPrefix+key)
+					}
+				}
+			} else if parser == "minecraft:item_stack" || parser == "minecraft:item_parser" || parser == "minecraft:item_component" {
+				for _, comp := range Components {
+					cleanComp := strings.TrimPrefix(comp, "minecraft:")
+					compLower := strings.ToLower(comp)
+					cleanCompLower := strings.ToLower(cleanComp)
+					if strings.HasPrefix(compLower, lastSegLower) || strings.HasPrefix(cleanCompLower, lastSegLower) {
+						suggestions = append(suggestions, fullPrefix+comp+"=")
+						if strings.HasPrefix(cleanCompLower, lastSegLower) && comp != cleanComp {
+							suggestions = append(suggestions, fullPrefix+cleanComp+"=")
+						}
+					}
+				}
+			} else if parser == "minecraft:block_state" || parser == "minecraft:block_input" {
+				blockProps := []string{"snowy=", "waterlogged=", "facing=", "powered=", "lit=", "half=", "shape=", "axis="}
+				for _, key := range blockProps {
+					if strings.HasPrefix(strings.ToLower(key), lastSegLower) {
+						suggestions = append(suggestions, fullPrefix+key)
+					}
+				}
+			}
+		}
+	} else {
+		// Typing value (has '=') or NBT (has ':')
+		parts := strings.SplitN(lastSeg, "=", 2)
+		var key, valInput string
+		sep := "="
+		if len(parts) < 2 && isBrace {
+			parts = strings.SplitN(lastSeg, ":", 2)
+			sep = ":"
+		}
+		if len(parts) >= 2 {
+			key = parts[0]
+			valInput = parts[1]
+		} else {
+			key = lastSeg
+			valInput = ""
+		}
+
+		var valCandidates []string
+		keyLower := strings.ToLower(key)
+
+		if parser == "minecraft:entity" || parser == "minecraft:game_profile" || parser == "minecraft:score_holder" {
+			if keyLower == "sort" {
+				valCandidates = selectorSortValues
+			} else if keyLower == "gamemode" {
+				valCandidates = selectorGamemodeValues
+			} else if keyLower == "type" {
+				valCandidates = Entities
+			}
+		} else if parser == "minecraft:item_stack" || parser == "minecraft:item_parser" || parser == "minecraft:item_component" {
+			if keyLower == "minecraft:unbreakable" || keyLower == "unbreakable" {
+				valCandidates = []string{"{}"}
+			}
+		}
+
+		valInputLower := strings.ToLower(valInput)
+		for _, val := range valCandidates {
+			if strings.HasPrefix(strings.ToLower(val), valInputLower) {
+				suggestions = append(suggestions, fullPrefix+key+sep+val)
+			}
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
 }

@@ -33,7 +33,7 @@ func TestGetHighlightAndSuggestionsGive(t *testing.T) {
 		t.Errorf("expected completed '/give' to be literal, got: %+v", styles)
 	}
 
-	// Test case 2: /give @p 
+	// Test case 2: /give @p
 	// Trailing space means we are waiting for the next argument (item)
 	styles, suggestions, _, _, _ = getHighlightAndSuggestions("/give @p ")
 	if len(styles) != 2 {
@@ -54,7 +54,7 @@ func TestGetHighlightAndSuggestionsGive(t *testing.T) {
 func TestGetHighlightAndSuggestionsItem(t *testing.T) {
 	_ = core.LoadData()
 
-	// Test case 1: /item replace block ~ 
+	// Test case 1: /item replace block ~
 	styles, _, _, _, _ := getHighlightAndSuggestions("/item replace block ~ ")
 	if len(styles) != 4 {
 		t.Fatalf("expected 4 styles, got %d: %+v", len(styles), styles)
@@ -103,7 +103,7 @@ func TestPrefixlessCompletion(t *testing.T) {
 
 	// "/give @p diam" のようにプレフィックスなしで打ったとき
 	_, suggestions, _, _, _ := getHighlightAndSuggestions("/give @p diam")
-	
+
 	// サジェストに "minecraft:diamond" または "minecraft:diamond_sword" が含まれているか
 	var foundDiamond bool
 	for _, s := range suggestions {

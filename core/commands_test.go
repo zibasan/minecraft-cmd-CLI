@@ -166,13 +166,13 @@ func TestParseCommandAndSyntaxGuides(t *testing.T) {
 	}
 	foundDamage := false
 	for _, s := range resComp.Suggestions {
-		if s == "diamond_sword[minecraft:damage" {
+		if s == "diamond_sword[minecraft:damage=" {
 			foundDamage = true
 			break
 		}
 	}
 	if !foundDamage {
-		t.Errorf("expected to find 'diamond_sword[minecraft:damage' in suggestions for 'diamond_sword[da', got: %v", resComp.Suggestions)
+		t.Errorf("expected to find 'diamond_sword[minecraft:damage=' in suggestions for 'diamond_sword[da', got: %v", resComp.Suggestions)
 	}
 
 	// 5. Summon (Entity) suggestions test
@@ -220,6 +220,3 @@ func TestParseCommandAndSyntaxGuides(t *testing.T) {
 		t.Errorf("expected no error for '/summon zombie ~ ~' (user still typing), got error at %d, words: %+v", resCoordOk.ErrorIdx, resCoordOk.Words)
 	}
 }
-
-
-

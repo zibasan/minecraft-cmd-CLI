@@ -25,7 +25,7 @@ func Levenshtein(a, b string) int {
 				cost = 0
 			}
 			dp[i][j] = minInt(
-				dp[i-1][j]+1,      // Deletion
+				dp[i-1][j]+1, // Deletion
 				minInt(
 					dp[i][j-1]+1,      // Insertion
 					dp[i-1][j-1]+cost, // Substitution

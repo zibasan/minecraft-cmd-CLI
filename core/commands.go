@@ -412,8 +412,6 @@ func FilterBlocksByCategory(allBlocks []string, categoryKeywords []string) []str
 // Command Parser and TUI Guide Logic for Free Mode
 // -----------------------------------------------------------------------------
 
-
-
 // ParserTypeNames maps Brigadier parser types to user-friendly Japanese explanations.
 var ParserTypeNames = map[string]string{
 	"minecraft:entity":            "対象（プレイヤー名や @p, @a など）",
@@ -539,35 +537,35 @@ var CommandDescriptions = map[string]string{
 
 // ArgumentDescriptions maps common argument names to descriptive Japanese summaries.
 var ArgumentDescriptions = map[string]string{
-	"targets":          "効果やアクションの対象となるプレイヤーまたはエンティティ",
-	"target":           "効果やアクションの対象となるプレイヤーまたはエンティティ（単一）",
-	"destination":      "テレポート先となる座標またはエンティティ",
-	"location":         "座標位置 (X Y Z)",
-	"pos":              "ブロック座標 (X Y Z)",
-	"block":            "配置または指定するブロックID",
-	"item":             "アイテムID",
-	"count":            "アイテムの個数",
-	"amount":           "数量",
-	"entity":           "召喚または指定するエンティティID",
-	"nbt":              "NBTデータ（JSON形式）",
-	"components":       "アイテムに付与するコンポーネント（属性、耐久度、カスタム名など）",
-	"slot":             "インベントリのスロット名（例: container.0）",
-	"modifier":         "属性のモディファイア（修飾子）ID",
-	"effect":           "ステータス効果ID",
-	"enchantment":      "エンチャント効果ID",
-	"level":            "エンチャントレベルや経験値レベルなどの数値",
-	"duration":         "効果の持続時間（秒数または ticks）",
-	"amplifier":        "効果の強さ（レベル、0がレベル1に相当）",
-	"hideParticles":    "パーティクル（泡のエフェクト）を非表示にするかどうか (true/false)",
-	"scale":            "倍率（数値）",
-	"reason":           "BANやキックの理由メッセージ",
-	"message":          "送信するメッセージテキスト",
-	"command":          "実行するコマンド文字列",
-	"visible":          "表示するかどうか (true/false)",
-	"value":            "設定する値",
-	"id":               "IDまたはリソースの場所",
-	"name":             "名前（JSON形式のコンポーネントなど）",
-	"speed":            "速度（数値）",
+	"targets":       "効果やアクションの対象となるプレイヤーまたはエンティティ",
+	"target":        "効果やアクションの対象となるプレイヤーまたはエンティティ（単一）",
+	"destination":   "テレポート先となる座標またはエンティティ",
+	"location":      "座標位置 (X Y Z)",
+	"pos":           "ブロック座標 (X Y Z)",
+	"block":         "配置または指定するブロックID",
+	"item":          "アイテムID",
+	"count":         "アイテムの個数",
+	"amount":        "数量",
+	"entity":        "召喚または指定するエンティティID",
+	"nbt":           "NBTデータ（JSON形式）",
+	"components":    "アイテムに付与するコンポーネント（属性、耐久度、カスタム名など）",
+	"slot":          "インベントリのスロット名（例: container.0）",
+	"modifier":      "属性のモディファイア（修飾子）ID",
+	"effect":        "ステータス効果ID",
+	"enchantment":   "エンチャント効果ID",
+	"level":         "エンチャントレベルや経験値レベルなどの数値",
+	"duration":      "効果の持続時間（秒数または ticks）",
+	"amplifier":     "効果の強さ（レベル、0がレベル1に相当）",
+	"hideParticles": "パーティクル（泡のエフェクト）を非表示にするかどうか (true/false)",
+	"scale":         "倍率（数値）",
+	"reason":        "BANやキックの理由メッセージ",
+	"message":       "送信するメッセージテキスト",
+	"command":       "実行するコマンド文字列",
+	"visible":       "表示するかどうか (true/false)",
+	"value":         "設定する値",
+	"id":            "IDまたはリソースの場所",
+	"name":          "名前（JSON形式のコンポーネントなど）",
+	"speed":         "速度（数値）",
 }
 
 // GetPropertiesDescription formats limits (min/max) defined in properties.
@@ -597,7 +595,7 @@ func GetDynamicSuggestions(parser string, registry string) []string {
 		case "minecraft:mob_effect":
 			return Effects
 		case "minecraft:enchantment":
-			var 	enchNames []string
+			var enchNames []string
 			for _, e := range Enchantments {
 				enchNames = append(enchNames, e.Name)
 			}
@@ -619,13 +617,15 @@ func GetDynamicSuggestions(parser string, registry string) []string {
 	case "minecraft:mob_effect":
 		return Effects
 	case "minecraft:enchantment":
-		var 	enchNames []string
+		var enchNames []string
 		for _, e := range Enchantments {
 			enchNames = append(enchNames, e.Name)
 		}
 		return enchNames
-	case "minecraft:block_pos", "minecraft:vec3", "minecraft:vec2", "minecraft:column_pos":
-		return []string{"~ ~ ~"}
+	case "minecraft:block_pos", "minecraft:vec3":
+		return []string{"~", "~ ~", "~ ~ ~"}
+	case "minecraft:vec2", "minecraft:column_pos":
+		return []string{"~", "~ ~"}
 	case "minecraft:block_state", "minecraft:block_input":
 		return Blocks
 	case "minecraft:resource_key", "minecraft:resource":
@@ -638,8 +638,6 @@ func GetDynamicSuggestions(parser string, registry string) []string {
 	}
 	return nil
 }
-
-
 
 // GetSyntaxGuides returns possible command paths from a given node.
 func GetSyntaxGuides(node *BrigadierNode, prefix string) []string {
@@ -701,3 +699,47 @@ func GetSyntaxGuides(node *BrigadierNode, prefix string) []string {
 
 	return results
 }
+
+// ParserDetailedDescriptions maps Brigadier parser types to beginner-friendly Japanese descriptions.
+var ParserDetailedDescriptions = map[string]string{
+	"minecraft:entity":            "対象（プレイヤー、Mob、または @p などのセレクター）を指定してください",
+	"minecraft:game_profile":      "ゲームプロフィール（プレイヤー名）を指定してください",
+	"minecraft:score_holder":      "スコアホルダー（プレイヤー名または対象エンティティ）を指定してください",
+	"minecraft:item_stack":        "アイテムID（例: stone）またはコンポーネント付きのアイテムを指定してください",
+	"minecraft:item_parser":       "アイテム（例: stone）を指定してください",
+	"minecraft:item_enchantment":  "エンチャントするアイテムを指定してください",
+	"minecraft:item_component":    "アイテムコンポーネント（例: damage=10）を入力してください",
+	"minecraft:item_slot":         "インベントリスロット（例: container.0）を指定してください",
+	"minecraft:entity_summon":     "召喚するエンティティID（例: zombie）を指定してください",
+	"minecraft:mob_effect":        "ステータス効果ID（例: speed）を指定してください",
+	"minecraft:enchantment":       "エンチャント効果ID（例: sharpness）を指定してください",
+	"minecraft:block_pos":         "ブロック座標（X Y Z、または相対座標 ~ ~ ~）を指定してください",
+	"minecraft:vec3":              "3次元の座標（X Y Z、または相対座標 ~ ~ ~）を指定してください",
+	"minecraft:vec2":              "2次元の座標（X Z、または相対座標 ~ ~）を指定してください",
+	"minecraft:column_pos":        "列座標（X Z、または相対座標 ~ ~）を指定してください",
+	"minecraft:block_state":       "ブロックIDと状態（例: air, stone）を指定してください",
+	"minecraft:block_input":       "ブロックIDと状態を指定してください",
+	"minecraft:resource_key":      "リソースキー IDを指定してください",
+	"minecraft:resource":          "リソース IDを指定してください",
+	"minecraft:resource_location": "リソースの場所 / パスを指定してください",
+	"minecraft:dimension":         "ディメンション名（例: minecraft:overworld）を指定してください",
+	"minecraft:nbt_compound_tag":  "エンティティ等の詳細データを指定する NBTタグ（例: {NoAI:1b}）を入力してください",
+	"minecraft:message":           "メッセージテキストを入力してください",
+	"minecraft:component":         "JSON テキストコンポーネントを入力してください",
+	"brigadier:string":            "文字列を入力してください",
+	"brigadier:integer":           "整数値を入力してください",
+	"brigadier:double":            "浮動小数点数値を入力してください",
+	"brigadier:bool":              "真偽値（true / false）を入力してください",
+}
+
+// GetParserHelpMessage returns dynamic beginner-friendly Japanese descriptions for a parser type.
+func GetParserHelpMessage(parser string) string {
+	if desc, exists := ParserDetailedDescriptions[parser]; exists {
+		return desc
+	}
+	if name, exists := ParserTypeNames[parser]; exists {
+		return name + "を指定してください"
+	}
+	return ""
+}
+

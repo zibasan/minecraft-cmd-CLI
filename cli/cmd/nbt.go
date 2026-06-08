@@ -458,4 +458,3 @@ func (m addedTagsModel) View() string {
 
 	return s.String()
 }
-

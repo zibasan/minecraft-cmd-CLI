@@ -96,6 +96,34 @@ func TestCommandParserTableDriven(t *testing.T) {
 			WantErrorIndex:  -1,
 			IsExecutable:    false,
 		},
+		{
+			Name:            "12. Give selector with options and item with components",
+			Input:           "/give @p[sort=nearest] stone[damage=10]",
+			WantTokensCount: 5,
+			WantErrorIndex:  -1,
+			IsExecutable:    true,
+		},
+		{
+			Name:            "13. Give selector incomplete option",
+			Input:           "/give @p[sort=nearest",
+			WantTokensCount: 3,
+			WantErrorIndex:  -1,
+			IsExecutable:    false,
+		},
+		{
+			Name:            "14. Give selector incomplete option key equals",
+			Input:           "/give @p[sort=",
+			WantTokensCount: 3,
+			WantErrorIndex:  -1,
+			IsExecutable:    false,
+		},
+		{
+			Name:            "15. Give item incomplete component",
+			Input:           "/give @p stone[damage=",
+			WantTokensCount: 4,
+			WantErrorIndex:  -1,
+			IsExecutable:    false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -118,5 +146,66 @@ func TestCommandParserTableDriven(t *testing.T) {
 				t.Errorf("ParseCommand(%q) IsExecutable = %t; want %t. ActiveNode: %+v", tc.Input, res.IsExecutable, tc.IsExecutable, res.CurrentNode)
 			}
 		})
+	}
+}
+
+func TestCommandParserSuggestions(t *testing.T) {
+	if err := LoadData(); err != nil {
+		t.Fatalf("Failed to load data: %v", err)
+	}
+
+	tests := []struct {
+		Input              string
+		WantSuggestions    []string // 期待する候補の一部（含まれているべきもの）
+		NotWantSuggestions []string // 含まれてはいけないもの
+	}{
+		{
+			Input:           "/give @p[",
+			WantSuggestions: []string{"@p[sort=", "@p[gamemode=", "@p[limit="},
+		},
+		{
+			Input:              "/give @p[sort=",
+			WantSuggestions:    []string{"@p[sort=nearest", "@p[sort=furthest"},
+			NotWantSuggestions: []string{"@p[sort=gamemode"},
+		},
+		{
+			Input:           "/give @p[sort=nearest,g",
+			WantSuggestions: []string{"@p[sort=nearest,gamemode="},
+		},
+		{
+			Input:           "/give @p[sort=nearest,gamemode=",
+			WantSuggestions: []string{"@p[sort=nearest,gamemode=survival", "@p[sort=nearest,gamemode=creative"},
+		},
+		{
+			Input:           "/give @p stone[max_",
+			WantSuggestions: []string{"stone[max_damage=", "stone[max_stack_size="},
+		},
+		{
+			Input:           "/give @p stone[damage=",
+			WantSuggestions: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		res := ParseCommand(tc.Input)
+		for _, w := range tc.WantSuggestions {
+			found := false
+			for _, s := range res.Suggestions {
+				if s == w {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("ParseCommand(%q) suggestions: %v; want to contain %q", tc.Input, res.Suggestions, w)
+			}
+		}
+		for _, nw := range tc.NotWantSuggestions {
+			for _, s := range res.Suggestions {
+				if s == nw {
+					t.Errorf("ParseCommand(%q) suggestions: %v; should NOT contain %q", tc.Input, res.Suggestions, nw)
+				}
+			}
+		}
 	}
 }
