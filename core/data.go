@@ -44,6 +44,7 @@ type BrigadierNode struct {
 	Executable bool                      `json:"executable,omitempty"`
 	Properties map[string]interface{}    `json:"properties,omitempty"`
 	Children   map[string]*BrigadierNode `json:"children,omitempty"`
+	Redirect   []string                  `json:"redirect,omitempty"`
 }
 
 func (n *BrigadierNode) GetRegistry() string {
