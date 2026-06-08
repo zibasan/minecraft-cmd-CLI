@@ -590,6 +590,25 @@ func (n *BrigadierNode) GetPropertiesDescription() string {
 
 // GetDynamicSuggestions returns list of values for Minecraft argument types.
 func GetDynamicSuggestions(parser string, registry string) []string {
+	if registry != "" {
+		switch registry {
+		case "minecraft:entity_type":
+			return Entities
+		case "minecraft:mob_effect":
+			return Effects
+		case "minecraft:enchantment":
+			var enchNames []string
+			for _, e := range Enchantments {
+				enchNames = append(enchNames, e.Name)
+			}
+			return enchNames
+		case "minecraft:attribute":
+			return []string{"generic.max_health", "generic.movement_speed", "generic.attack_damage"}
+		case "minecraft:dimension":
+			return []string{"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"}
+		}
+	}
+
 	switch parser {
 	case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
 		return []string{"@p", "@a", "@r", "@s", "@e"}

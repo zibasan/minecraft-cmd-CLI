@@ -174,6 +174,33 @@ func TestParseCommandAndSyntaxGuides(t *testing.T) {
 	if !foundDamage {
 		t.Errorf("expected to find 'diamond_sword[minecraft:damage' in suggestions for 'diamond_sword[da', got: %v", resComp.Suggestions)
 	}
+
+	// 5. Summon (Entity) suggestions test
+	resSummon := ParseCommand("/summon zo")
+	foundZombie := false
+	for _, s := range resSummon.Suggestions {
+		if s == "zombie" || s == "minecraft:zombie" {
+			foundZombie = true
+			break
+		}
+	}
+	if !foundZombie {
+		t.Errorf("expected to find 'zombie' or 'minecraft:zombie' in summon suggestions, got: %v", resSummon.Suggestions)
+	}
+
+	// 6. Effect suggestions test
+	resEffect := ParseCommand("/effect give @p spe")
+	foundSpeed := false
+	for _, s := range resEffect.Suggestions {
+		if s == "minecraft:speed" || s == "speed" {
+			foundSpeed = true
+			break
+		}
+	}
+	if !foundSpeed {
+		t.Errorf("expected to find 'minecraft:speed' or 'speed' in effect suggestions, got: %v", resEffect.Suggestions)
+	}
 }
+
 
 
