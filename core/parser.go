@@ -166,14 +166,14 @@ func resolveRedirect(root *BrigadierNode, path []string) *BrigadierNode {
 // getCoordinateArgValTokens extracts consecutive valid coordinate tokens up to the maximum required.
 func getCoordinateArgValTokens(tokens []Token, start int, parser string) (string, int) {
 	var maxRequired int
-	if parser == "minecraft:block_pos" || parser == "minecraft:vec3" {
+	switch parser {
+	case "minecraft:block_pos", "minecraft:vec3":
 		maxRequired = 3
-	} else if parser == "minecraft:vec2" || parser == "minecraft:column_pos" {
+	case "minecraft:vec2", "minecraft:column_pos":
 		maxRequired = 2
-	} else {
+	default:
 		return "", 0
 	}
-
 	var parts []string
 	idx := start
 	n := len(tokens)
@@ -261,13 +261,14 @@ func isIncompleteBrackets(s string) bool {
 	squareCount := 0
 	curlyCount := 0
 	for _, r := range s {
-		if r == '[' {
+		switch r {
+		case '[':
 			squareCount++
-		} else if r == ']' {
+		case ']':
 			squareCount--
-		} else if r == '{' {
+		case '{':
 			curlyCount++
-		} else if r == '}' {
+		case '}':
 			curlyCount--
 		}
 	}
@@ -283,13 +284,14 @@ func isCompletedBrackets(s string) bool {
 	squareCount := 0
 	curlyCount := 0
 	for _, r := range s {
-		if r == '[' {
+		switch r {
+		case '[':
 			squareCount++
-		} else if r == ']' {
+		case ']':
 			squareCount--
-		} else if r == '{' {
+		case '{':
 			curlyCount++
-		} else if r == '}' {
+		case '}':
 			curlyCount--
 		}
 	}
@@ -464,7 +466,7 @@ func ParseCommand(input string) ParseResult {
 				} else {
 					currentNode = matched
 				}
-			} else if matched.Type == "literal" && matchedName == "run" && (matched.Children == nil || len(matched.Children) == 0) {
+			} else if matched.Type == "literal" && matchedName == "run" && (len(matched.Children) == 0) {
 				currentNode = &CommandTree
 			} else {
 				currentNode = matched
@@ -661,7 +663,7 @@ func ParseCommand(input string) ParseResult {
 			} else {
 				activeNode = matchedLast
 			}
-		} else if matchedLast.Type == "literal" && matchedLastName == "run" && (matchedLast.Children == nil || len(matchedLast.Children) == 0) {
+		} else if matchedLast.Type == "literal" && matchedLastName == "run" && (len(matchedLast.Children) == 0) {
 			activeNode = &CommandTree
 		} else {
 			activeNode = matchedLast
@@ -695,7 +697,8 @@ func ParseCommand(input string) ParseResult {
 		lastWordLower := strings.ToLower(lastWord)
 		for _, key := range keys {
 			child := currentNode.Children[key]
-			if child.Type == "literal" {
+			switch child.Type {
+			case "literal":
 				if strings.HasPrefix(strings.ToLower(key), lastWordLower) {
 					suggestVal := key
 					if p == 0 && hasSlash {
@@ -704,7 +707,7 @@ func ParseCommand(input string) ParseResult {
 					suggestions = append(suggestions, suggestVal)
 				}
 				syntaxParts = append(syntaxParts, key)
-			} else if child.Type == "argument" {
+			case "argument":
 				list := GetDynamicSuggestions(child.Parser, child.GetRegistry())
 				var sortedList []string
 				if list != nil {
@@ -735,14 +738,14 @@ func ParseCommand(input string) ParseResult {
 	isLastWordFullyMatched := false
 	if matchedLast != nil && lastWord != "" {
 		if matchedLast.Type == "literal" {
-			isLastWordFullyMatched = strings.ToLower(lastWord) == strings.ToLower(matchedLastVal)
+			isLastWordFullyMatched = strings.EqualFold(lastWord, matchedLastVal)
 		} else {
 			isLastWordFullyMatched = isValidArgValue(lastWord, matchedLast.Parser, matchedLast.GetRegistry(), false)
 		}
 	}
 
 	isCoordsCompleted := currentPosTokensRequired > 0 && currentPosTokensCount == currentPosTokensRequired
-	hasNoChildren := activeNode != nil && (activeNode.Children == nil || len(activeNode.Children) == 0)
+	hasNoChildren := activeNode != nil && (len(activeNode.Children) == 0)
 
 	if !hasTrailingSpace {
 		// 1. 引数やリテラルが完全に確定しており、かつ末尾にスペースがない場合
@@ -824,13 +827,14 @@ func getModifierSuggestions(lastWord string, parser string, prependPart string) 
 				}
 			}
 		} else {
-			if parser == "minecraft:entity" || parser == "minecraft:game_profile" || parser == "minecraft:score_holder" {
+			switch parser {
+			case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
 				for _, key := range selectorKeys {
 					if strings.HasPrefix(strings.ToLower(key), lastSegLower) {
 						suggestions = append(suggestions, fullPrefix+key)
 					}
 				}
-			} else if parser == "minecraft:item_stack" || parser == "minecraft:item_parser" || parser == "minecraft:item_component" {
+			case "minecraft:item_stack", "minecraft:item_parser", "minecraft:item_component":
 				for _, comp := range Components {
 					cleanComp := strings.TrimPrefix(comp, "minecraft:")
 					compLower := strings.ToLower(comp)
@@ -842,7 +846,7 @@ func getModifierSuggestions(lastWord string, parser string, prependPart string) 
 						}
 					}
 				}
-			} else if parser == "minecraft:block_state" || parser == "minecraft:block_input" {
+			case "minecraft:block_state", "minecraft:block_input":
 				blockProps := []string{"snowy=", "waterlogged=", "facing=", "powered=", "lit=", "half=", "shape=", "axis="}
 				for _, key := range blockProps {
 					if strings.HasPrefix(strings.ToLower(key), lastSegLower) {
@@ -871,15 +875,17 @@ func getModifierSuggestions(lastWord string, parser string, prependPart string) 
 		var valCandidates []string
 		keyLower := strings.ToLower(key)
 
-		if parser == "minecraft:entity" || parser == "minecraft:game_profile" || parser == "minecraft:score_holder" {
-			if keyLower == "sort" {
+		switch parser {
+		case "minecraft:entity", "minecraft:game_profile", "minecraft:score_holder":
+			switch keyLower {
+			case "sort":
 				valCandidates = selectorSortValues
-			} else if keyLower == "gamemode" {
+			case "gamemode":
 				valCandidates = selectorGamemodeValues
-			} else if keyLower == "type" {
+			case "type":
 				valCandidates = Entities
 			}
-		} else if parser == "minecraft:item_stack" || parser == "minecraft:item_parser" || parser == "minecraft:item_component" {
+		case "minecraft:item_stack", "minecraft:item_parser", "minecraft:item_component":
 			if keyLower == "minecraft:unbreakable" || keyLower == "unbreakable" {
 				valCandidates = []string{"{}"}
 			}

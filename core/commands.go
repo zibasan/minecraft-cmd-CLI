@@ -652,7 +652,7 @@ func GetSyntaxGuides(node *BrigadierNode, prefix string) []string {
 			results = append(results, strings.Join(currentPath, " "))
 		}
 
-		if n.Children == nil || len(n.Children) == 0 {
+		if len(n.Children) == 0 {
 			return
 		}
 
@@ -742,4 +742,3 @@ func GetParserHelpMessage(parser string) string {
 	}
 	return ""
 }
-
